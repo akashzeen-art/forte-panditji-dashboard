@@ -1,0 +1,16 @@
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
+
+# Proxy API + WebSocket (SockJS) to production backend
+[[redirects]]
+  from = "/api/*"
+  to = "https://myastrosutra.online/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
