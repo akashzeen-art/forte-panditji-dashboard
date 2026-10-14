@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ConfirmationResult } from "firebase/auth";
 import {
+  ArrowLeft,
   Check,
   Coffee,
   Loader2,
   LogOut,
+  MessageSquare,
   Phone,
   PhoneOff,
+  ShieldCheck,
   Sparkles,
   Star,
   Wifi,
   WifiOff,
-  Zap,
 } from "lucide-react";
 import {
+  clearSession,
   fetchPanditByMobile,
   getStoredMobile,
   loginPandit,
@@ -24,10 +28,17 @@ import {
   type PanditApiStatus,
   type PanditProfile,
 } from "./services/api";
+import { getVerifiedUser, phoneMatches, sendOtp, signOutOtp, verifyOtp } from "./services/otp";
+import { isFirebaseConfigured } from "./lib/firebase";
 import { isSocketConnected, onWsStatus, startPanditSocket } from "./services/socket";
 import PanditAvatar from "./components/PanditAvatar";
 
 type View = "login" | "dashboard";
+type LoginStep = "mobile" | "otp";
+
+const RECAPTCHA_CONTAINER_ID = "recaptcha-container";
+const OTP_LENGTH = 6;
+const RESEND_SECONDS = 30;
 
 type ToggleStatus = "AVAILABLE" | "BUSY" | "BREAK";
 
@@ -104,6 +115,11 @@ export default function App() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [wsConnected, setWsConnected] = useState(false);
+  const [loginStep, setLoginStep] = useState<LoginStep>("mobile");
+  const [otp, setOtp] = useState("");
+  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+  const firebaseReady = isFirebaseConfigured();
 
   const panditDigits = normalizeMobile(profile?.phoneNumber || mobile);
 
@@ -118,17 +134,23 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [syncConnection]);
 
-  // Restore session — show dashboard if already logged in
+  // Restore session only when the Firebase OTP session matches the stored mobile
   useEffect(() => {
     const stored = getStoredMobile();
-    if (stored.length !== 10) {
+    if (stored.length !== 10 || !firebaseReady) {
       setBooting(false);
       return;
     }
 
     setMobile(stored);
-    fetchPanditByMobile(stored)
-      .then((data) => {
+    getVerifiedUser()
+      .then(async (user) => {
+        if (!phoneMatches(user, stored)) {
+          clearSession();
+          await signOutOtp();
+          return;
+        }
+        const data = await fetchPanditByMobile(stored);
         setProfile(data);
         setView("dashboard");
       })
@@ -136,7 +158,13 @@ export default function App() {
         setView("login");
       })
       .finally(() => setBooting(false));
-  }, []);
+  }, [firebaseReady]);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = window.setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendIn]);
 
   // Real-time status from WebSocket
   useEffect(() => {
@@ -148,19 +176,58 @@ export default function App() {
     });
   }, [panditDigits, view]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const requestOtp = async () => {
     setLoading(true);
     setError("");
     try {
+      await fetchPanditByMobile(mobile);
+      const result = await sendOtp(mobile, RECAPTCHA_CONTAINER_ID);
+      setConfirmation(result);
+      setOtp("");
+      setLoginStep("otp");
+      setResendIn(RESEND_SECONDS);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    void requestOtp();
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmation) return;
+    setLoading(true);
+    setError("");
+    try {
+      const user = await verifyOtp(confirmation, otp);
+      if (!phoneMatches(user, mobile)) {
+        await signOutOtp();
+        throw new Error("Verified number does not match. Please try again.");
+      }
       const data = await loginPandit(mobile);
       setProfile(data);
       setView("dashboard");
+      setLoginStep("mobile");
+      setConfirmation(null);
+      setOtp("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  const changeNumber = () => {
+    setLoginStep("mobile");
+    setConfirmation(null);
+    setOtp("");
+    setError("");
+    setResendIn(0);
   };
 
   const handleStatusChange = async (next: ToggleStatus) => {
@@ -188,6 +255,8 @@ export default function App() {
 
   const handleLogout = async () => {
     if (!profile?.phoneNumber) {
+      clearSession();
+      await signOutOtp();
       setView("login");
       setProfile(null);
       return;
@@ -197,6 +266,7 @@ export default function App() {
     setError("");
     try {
       await logoutPandit(profile.phoneNumber);
+      await signOutOtp();
       setProfile(null);
       setMobile("");
       setView("login");
@@ -265,58 +335,144 @@ export default function App() {
                 </span>
               </h1>
               <p className="mt-2 text-sm text-zinc-500">
-                Enter your registered mobile number. On login your status becomes{" "}
-                <span className="font-semibold text-emerald-400">AVAILABLE</span>.
-              </p>
-            </header>
-
-            <form
-              onSubmit={(e) => void handleLogin(e)}
-              className="rounded-2xl border border-zinc-800 bg-zinc-950/90 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]"
-            >
-              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                Mobile number
-              </label>
-              <div className="mb-4 flex gap-2">
-                <span className="flex h-12 items-center rounded-xl border border-zinc-800 bg-black px-3.5 text-sm text-zinc-400">
-                  +91
-                </span>
-                <input
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={mobile}
-                  onChange={(e) =>
-                    setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
-                  }
-                  placeholder="9876543210"
-                  className="h-12 flex-1 rounded-xl border border-zinc-800 bg-black px-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
-                />
-              </div>
-
-              {error && (
-                <p className="mb-4 rounded-xl border border-red-500/20 bg-red-950/40 px-3.5 py-2.5 text-sm text-red-300">
-                  {error}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading || mobile.length !== 10}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-40"
-              >
-                {loading ? (
+                {loginStep === "mobile" ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in…
+                    Enter your registered mobile number to receive an OTP. On login your
+                    status becomes <span className="font-semibold text-emerald-400">AVAILABLE</span>.
                   </>
                 ) : (
                   <>
-                    <Zap className="mr-2 h-4 w-4" />
-                    Login
+                    Enter the {OTP_LENGTH}-digit OTP sent to{" "}
+                    <span className="font-semibold text-zinc-300">+91 {mobile}</span>.
                   </>
                 )}
-              </button>
-            </form>
+              </p>
+            </header>
+
+            {!firebaseReady && (
+              <p className="mb-4 rounded-xl border border-amber-500/25 bg-amber-950/30 px-3.5 py-2.5 text-sm text-amber-200">
+                OTP login is not configured yet. Add the Firebase keys to the dashboard&apos;s
+                environment file and restart.
+              </p>
+            )}
+
+            {loginStep === "mobile" ? (
+              <form
+                onSubmit={handleSendOtp}
+                className="rounded-2xl border border-zinc-800 bg-zinc-950/90 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]"
+              >
+                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  Mobile number
+                </label>
+                <div className="mb-4 flex gap-2">
+                  <span className="flex h-12 items-center rounded-xl border border-zinc-800 bg-black px-3.5 text-sm text-zinc-400">
+                    +91
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    maxLength={10}
+                    value={mobile}
+                    onChange={(e) =>
+                      setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+                    }
+                    placeholder="9876543210"
+                    className="h-12 flex-1 rounded-xl border border-zinc-800 bg-black px-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+                  />
+                </div>
+
+                {error && (
+                  <p className="mb-4 rounded-xl border border-red-500/20 bg-red-950/40 px-3.5 py-2.5 text-sm text-red-300">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || !firebaseReady || mobile.length !== 10}
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-40"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending OTP…
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Send OTP
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <form
+                onSubmit={(e) => void handleVerifyOtp(e)}
+                className="rounded-2xl border border-zinc-800 bg-zinc-950/90 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]"
+              >
+                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  One-time password
+                </label>
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  maxLength={OTP_LENGTH}
+                  value={otp}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
+                  }
+                  placeholder="••••••"
+                  className="mb-4 h-12 w-full rounded-xl border border-zinc-800 bg-black px-4 text-center text-xl font-semibold tracking-[0.5em] text-white outline-none placeholder:text-zinc-700 focus:border-amber-500/50"
+                />
+
+                {error && (
+                  <p className="mb-4 rounded-xl border border-red-500/20 bg-red-950/40 px-3.5 py-2.5 text-sm text-red-300">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.length !== OTP_LENGTH}
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-40"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying…
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                      Verify &amp; Login
+                    </>
+                  )}
+                </button>
+
+                <div className="mt-4 flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={changeNumber}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1 text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Change number
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void requestOtp()}
+                    disabled={loading || resendIn > 0}
+                    className="font-semibold text-amber-400 transition hover:text-amber-300 disabled:text-zinc-600"
+                  >
+                    {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div id={RECAPTCHA_CONTAINER_ID} />
           </>
         ) : (
           profile && (
