@@ -9,25 +9,56 @@ import { FirebaseError } from "firebase/app";
 import { getFirebaseAuth } from "../lib/firebase";
 import { normalizeMobile } from "./api";
 
+const RECAPTCHA_TIMEOUT_MS = 120_000;
+
 let verifier: RecaptchaVerifier | null = null;
 
 function resetVerifier(): void {
-  verifier?.clear();
+  try {
+    verifier?.clear();
+  } catch {
+    /* widget already gone */
+  }
   verifier = null;
 }
 
-function getVerifier(containerId: string): RecaptchaVerifier {
-  if (!verifier) {
-    verifier = new RecaptchaVerifier(getFirebaseAuth(), containerId, {
-      size: "invisible",
-      "expired-callback": resetVerifier,
-    });
-  }
+/** A fresh widget in a fresh element per attempt — reusing a cleared/expired one fails verification. */
+function createVerifier(containerId: string): RecaptchaVerifier {
+  resetVerifier();
+  const host = document.getElementById(containerId);
+  if (!host) throw new Error("Verification widget missing. Please refresh the page.");
+  const el = document.createElement("div");
+  host.replaceChildren(el);
+  verifier = new RecaptchaVerifier(getFirebaseAuth(), el, { size: "invisible" });
   return verifier;
+}
+
+function isIpHost(hostname: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.includes(":");
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error("Verification timed out. Please tap Send OTP again.")),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        window.clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 function otpErrorMessage(err: unknown): string {
   const code = err instanceof FirebaseError ? err.code : "";
+  console.warn("[otp]", code || "error", err);
   switch (code) {
     case "auth/invalid-phone-number":
       return "Invalid mobile number";
@@ -43,7 +74,7 @@ function otpErrorMessage(err: unknown): string {
       return "OTP expired. Please request a new one.";
     case "auth/captcha-check-failed":
     case "auth/invalid-app-credential":
-      return "Verification failed. Please refresh the page and try again.";
+      return `Verification failed (${code}). Please refresh the page and try again.`;
     case "auth/unauthorized-domain":
       return "This domain is not authorised in Firebase. Add it under Authentication → Settings → Authorized domains.";
     case "auth/operation-not-allowed":
@@ -63,8 +94,18 @@ export async function sendOtp(mobile: string, recaptchaContainerId: string): Pro
   const msisdn = normalizeMobile(mobile);
   if (msisdn.length !== 10) throw new Error("Enter a valid 10-digit mobile number");
 
+  const { hostname, port } = window.location;
+  if (isIpHost(hostname)) {
+    throw new Error(
+      `OTP doesn't work on an IP address (${hostname}). Open http://localhost:${port || "3001"} or the live site instead.`,
+    );
+  }
+
   try {
-    return await signInWithPhoneNumber(getFirebaseAuth(), `+91${msisdn}`, getVerifier(recaptchaContainerId));
+    return await withTimeout(
+      signInWithPhoneNumber(getFirebaseAuth(), `+91${msisdn}`, createVerifier(recaptchaContainerId)),
+      RECAPTCHA_TIMEOUT_MS,
+    );
   } catch (err) {
     resetVerifier();
     throw new Error(otpErrorMessage(err));

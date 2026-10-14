@@ -26,6 +26,7 @@ const PANDIT_BY_MOBILE_PATH =
   import.meta.env.VITE_ASTRO_PANDIT_BY_MOBILE_URL || "/api/astro/pandit";
 const PANDIT_STATUS_PATH =
   import.meta.env.VITE_ASTRO_PANDIT_STATUS_URL || "/api/astro/pandit/status";
+const SHOW_QR_PATH = import.meta.env.VITE_ASTRO_SHOW_QR_URL || "/api/astro/show-qr";
 const SESSION_KEY = "pandit_dashboard_mobile";
 
 function mapProfile(data: Record<string, unknown>, mobile: string): PanditProfile {
@@ -125,6 +126,23 @@ export async function updatePanditStatus(
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(text || `Status update failed (${response.status})`);
+  }
+}
+
+/** GET /api/astro/show-qr?customer= — backend pushes the payment QR to that customer's screen. */
+export async function sendPaymentQr(customerMobile: string): Promise<void> {
+  const customer = normalizeMobile(customerMobile);
+  if (customer.length !== 10) {
+    throw new Error("Enter the customer's 10-digit mobile number");
+  }
+
+  const response = await fetch(
+    `${resolveApiUrl(SHOW_QR_PATH)}?customer=${encodeURIComponent(customer)}`,
+    { method: "GET", headers: { Accept: "application/json" } },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Could not send QR (${response.status})`);
   }
 }
 

@@ -8,6 +8,8 @@ import {
   MessageSquare,
   Phone,
   PhoneOff,
+  QrCode,
+  Send,
   ShieldCheck,
   Sparkles,
   Star,
@@ -21,6 +23,7 @@ import {
   loginPandit,
   logoutPandit,
   normalizeMobile,
+  sendPaymentQr,
   statusLabel,
   updatePanditStatus,
   normalizeApiStatus,
@@ -109,6 +112,9 @@ export default function App() {
   const [otp, setOtp] = useState("");
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [resendIn, setResendIn] = useState(0);
+  const [qrCustomer, setQrCustomer] = useState("");
+  const [qrSending, setQrSending] = useState(false);
+  const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
   const firebaseReady = isFirebaseConfigured();
 
   const panditDigits = normalizeMobile(profile?.phoneNumber || mobile);
@@ -240,6 +246,21 @@ export default function App() {
       setError(err instanceof Error ? err.message : "Could not update status");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendQr = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (qrSending) return;
+    setQrSending(true);
+    setQrResult(null);
+    try {
+      await sendPaymentQr(qrCustomer);
+      setQrResult({ ok: true, text: `QR sent to +91 ${qrCustomer}` });
+    } catch (err) {
+      setQrResult({ ok: false, text: err instanceof Error ? err.message : "Could not send QR" });
+    } finally {
+      setQrSending(false);
     }
   };
 
@@ -558,6 +579,75 @@ export default function App() {
                   </p>
                 )}
               </div>
+
+              {/* Payment QR */}
+              <form
+                onSubmit={(e) => void handleSendQr(e)}
+                className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4"
+              >
+                <div className="mb-3 flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
+                    <QrCode className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      Send payment QR
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-600">
+                      Shows the payment QR on the customer&apos;s screen
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-3 flex gap-2">
+                  <span className="flex h-11 items-center rounded-xl border border-zinc-800 bg-black px-3 text-sm text-zinc-400">
+                    +91
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={qrCustomer}
+                    onChange={(e) => {
+                      setQrCustomer(e.target.value.replace(/\D/g, "").slice(0, 10));
+                      setQrResult(null);
+                    }}
+                    placeholder="Customer mobile"
+                    aria-label="Customer mobile number"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-zinc-800 bg-black px-3.5 text-base text-white outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={qrSending || qrCustomer.length !== 10}
+                  className="flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-40"
+                >
+                  {qrSending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending QR…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Send QR
+                    </>
+                  )}
+                </button>
+
+                {qrResult && (
+                  <p
+                    className={`mt-3 flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm ${
+                      qrResult.ok
+                        ? "border-emerald-500/20 bg-emerald-950/40 text-emerald-300"
+                        : "border-red-500/20 bg-red-950/40 text-red-300"
+                    }`}
+                  >
+                    {qrResult.ok && <Check className="h-4 w-4 shrink-0" />}
+                    {qrResult.text}
+                  </p>
+                )}
+              </form>
 
               {error && (
                 <p className="mb-4 rounded-xl border border-red-500/20 bg-red-950/40 px-3.5 py-2.5 text-sm text-red-300">
