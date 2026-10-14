@@ -28,6 +28,7 @@ const PANDIT_STATUS_PATH =
   import.meta.env.VITE_ASTRO_PANDIT_STATUS_URL || "/api/astro/pandit/status";
 const SHOW_QR_PATH = import.meta.env.VITE_ASTRO_SHOW_QR_URL || "/api/astro/show-qr";
 const SESSION_KEY = "pandit_dashboard_mobile";
+const PROFILE_KEY = "pandit_dashboard_profile";
 
 function mapProfile(data: Record<string, unknown>, mobile: string): PanditProfile {
   const phone = normalizeMobile(String(data.phoneNumber || mobile));
@@ -76,9 +77,25 @@ export function storeMobile(mobile: string): void {
   }
 }
 
+export function getStoredProfile(): PanditProfile | null {
+  try {
+    const data = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null") as PanditProfile | null;
+    return data?.phoneNumber ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeProfile(profile: PanditProfile): void {
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
 export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(PROFILE_KEY);
 }
+
+export class PanditNotFoundError extends Error {}
 
 /** GET /api/astro/pandit?mobile= */
 export async function fetchPanditByMobile(mobile: string): Promise<PanditProfile> {
@@ -93,7 +110,7 @@ export async function fetchPanditByMobile(mobile: string): Promise<PanditProfile
   );
 
   if (response.status === 404) {
-    throw new Error("No Pandit Ji profile found for this number");
+    throw new PanditNotFoundError("No Pandit Ji profile found for this number");
   }
   if (!response.ok) {
     throw new Error(`Could not load profile (${response.status})`);
@@ -150,8 +167,10 @@ export async function sendPaymentQr(customerMobile: string): Promise<void> {
 export async function loginPandit(mobile: string): Promise<PanditProfile> {
   const profile = await fetchPanditByMobile(mobile);
   await updatePanditStatus(profile.phoneNumber, "AVAILABLE");
+  const loggedIn: PanditProfile = { ...profile, status: "AVAILABLE" };
   storeMobile(profile.phoneNumber);
-  return { ...profile, status: "AVAILABLE" };
+  storeProfile(loggedIn);
+  return loggedIn;
 }
 
 /** Logout: set OFFLINE then clear session */

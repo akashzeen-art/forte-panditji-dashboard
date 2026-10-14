@@ -20,6 +20,7 @@ import {
   clearSession,
   fetchPanditByMobile,
   getStoredMobile,
+  getStoredProfile,
   loginPandit,
   logoutPandit,
   normalizeMobile,
@@ -27,12 +28,18 @@ import {
   statusLabel,
   updatePanditStatus,
   normalizeApiStatus,
+  storeProfile,
   type PanditApiStatus,
   type PanditProfile,
 } from "./services/api";
-import { getVerifiedUser, phoneMatches, sendOtp, signOutOtp, verifyOtp } from "./services/otp";
+import { phoneMatches, sendOtp, signOutOtp, verifyOtp } from "./services/otp";
 import { isFirebaseConfigured } from "./lib/firebase";
-import { isSocketConnected, onWsStatus, startPanditSocket } from "./services/socket";
+import {
+  isSocketConnected,
+  onCustomerCall,
+  onWsStatus,
+  startPanditSocket,
+} from "./services/socket";
 import PanditAvatar from "./components/PanditAvatar";
 
 type View = "login" | "dashboard";
@@ -115,6 +122,7 @@ export default function App() {
   const [qrCustomer, setQrCustomer] = useState("");
   const [qrSending, setQrSending] = useState(false);
   const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [liveCaller, setLiveCaller] = useState<{ customer: string; ended: boolean } | null>(null);
   const firebaseReady = isFirebaseConfigured();
 
   const panditDigits = normalizeMobile(profile?.phoneNumber || mobile);
@@ -130,31 +138,53 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [syncConnection]);
 
-  // Restore session only when the Firebase OTP session matches the stored mobile
+  // Stay logged in until Pandit Ji taps Logout — network errors never end the session
   useEffect(() => {
     const stored = getStoredMobile();
-    if (stored.length !== 10 || !firebaseReady) {
+    if (stored.length !== 10) {
       setBooting(false);
       return;
     }
 
+    let cancelled = false;
+    let retryTimer: number | null = null;
+    const cached = getStoredProfile();
     setMobile(stored);
-    getVerifiedUser()
-      .then(async (user) => {
-        if (!phoneMatches(user, stored)) {
-          clearSession();
-          await signOutOtp();
-          return;
-        }
-        const data = await fetchPanditByMobile(stored);
-        setProfile(data);
-        setView("dashboard");
-      })
-      .catch(() => {
-        setView("login");
-      })
-      .finally(() => setBooting(false));
-  }, [firebaseReady]);
+    if (cached) {
+      setProfile(cached);
+      setView("dashboard");
+      setBooting(false);
+    }
+
+    const loadProfile = () => {
+      fetchPanditByMobile(stored)
+        .then((data) => {
+          if (cancelled) return;
+          setProfile(data);
+          setView("dashboard");
+          setBooting(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          if (cached) {
+            setBooting(false);
+            return;
+          }
+          retryTimer = window.setTimeout(loadProfile, 5000);
+        });
+    };
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (view === "dashboard" && profile) storeProfile(profile);
+  }, [view, profile]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -169,6 +199,24 @@ export default function App() {
     return onWsStatus(({ mobile: wsMobile, status }) => {
       if (normalizeMobile(wsMobile) !== panditDigits) return;
       setProfile((prev) => (prev ? { ...prev, status } : prev));
+    });
+  }, [panditDigits, view]);
+
+  // Customer number arrives over WebSocket when a call connects: { customer, status: "oncall" }
+  useEffect(() => {
+    if (panditDigits.length !== 10 || view !== "dashboard") return;
+
+    return onCustomerCall(({ customer, pandit, phase }) => {
+      if (pandit && pandit !== panditDigits) return;
+      if (phase === "oncall") {
+        setLiveCaller({ customer, ended: false });
+        setQrCustomer(customer);
+        setQrResult(null);
+        return;
+      }
+      setLiveCaller((prev) =>
+        prev && prev.customer === customer ? { ...prev, ended: true } : prev,
+      );
     });
   }, [panditDigits, view]);
 
@@ -594,10 +642,28 @@ export default function App() {
                       Send payment QR
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-600">
-                      Shows the payment QR on the customer&apos;s screen
+                      Customer number fills in automatically when a call connects
                     </p>
                   </div>
                 </div>
+
+                {liveCaller && (
+                  <div
+                    className={`mb-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                      liveCaller.ended
+                        ? "border-zinc-700 bg-zinc-900 text-zinc-400"
+                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    }`}
+                  >
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        liveCaller.ended ? "bg-zinc-500" : "animate-pulse bg-emerald-400"
+                      }`}
+                    />
+                    {liveCaller.ended ? "Last caller" : "On call with"} +91 {liveCaller.customer}
+                    {liveCaller.ended && <span className="font-normal">· call ended</span>}
+                  </div>
+                )}
 
                 <div className="mb-3 flex gap-2">
                   <span className="flex h-11 items-center rounded-xl border border-zinc-800 bg-black px-3 text-sm text-zinc-400">

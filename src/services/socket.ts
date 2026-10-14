@@ -4,13 +4,25 @@ import { normalizeApiStatus, normalizeMobile, type PanditApiStatus } from "./api
 import { isSameOriginUrl, resolveSockJsUrl } from "../lib/upstream";
 
 const WS_EVENT = "pandit-dashboard-ws-status";
+const CUSTOMER_EVENT = "pandit-dashboard-ws-customer";
 const SOCKJS_PATH = import.meta.env.VITE_PANDIT_WS_URL || "/api/ws";
 const STATUS_TOPIC = "/topic/pandit/status";
+/** Backend: { customer, status: "oncall" | "show-qr" } */
+const SHOW_QR_TOPIC = "/topic/show-qr";
+/** Backend: { customer, status: "oncall" } or { mobile: customer, status: "CALL ENDED" } */
+const CALL_STATUS_TOPIC = "/topic/call/status";
 const RECONNECT_MS = 8_000;
 
 export type WsStatusPayload = {
   mobile: string;
   status: PanditApiStatus;
+};
+
+export type CustomerCallEvent = {
+  customer: string;
+  /** Pandit mobile when the backend includes it — used to ignore other Pandit Ji's calls. */
+  pandit: string;
+  phase: "oncall" | "ended";
 };
 
 let client: Client | null = null;
@@ -52,6 +64,40 @@ export function onWsStatus(callback: (payload: WsStatusPayload) => void): () => 
   return () => window.removeEventListener(WS_EVENT, handler);
 }
 
+export function onCustomerCall(callback: (payload: CustomerCallEvent) => void): () => void {
+  const handler = (e: Event) => {
+    callback((e as CustomEvent<CustomerCallEvent>).detail);
+  };
+  window.addEventListener(CUSTOMER_EVENT, handler);
+  return () => window.removeEventListener(CUSTOMER_EVENT, handler);
+}
+
+function emitCustomerCall(body: string, allowMobileKey: boolean) {
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const customer = normalizeMobile(String(data.customer ?? (allowMobileKey ? data.mobile : "") ?? ""));
+  if (customer.length !== 10) return;
+
+  const status = String(data.status || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const phase =
+    status === "oncall"
+      ? "oncall"
+      : status === "callended" || status === "ended" || status === "disconnected"
+        ? "ended"
+        : null;
+  if (!phase) return;
+
+  const pandit = normalizeMobile(
+    String(data.pandit ?? data.panditMobile ?? data.agent ?? data.agentNumber ?? ""),
+  );
+  const detail: CustomerCallEvent = { customer, pandit, phase };
+  window.dispatchEvent(new CustomEvent(CUSTOMER_EVENT, { detail }));
+}
+
 export function startPanditSocket(): void {
   if (started) return;
   started = true;
@@ -78,6 +124,8 @@ export function startPanditSocket(): void {
           /* ignore bad payload */
         }
       });
+      client?.subscribe(SHOW_QR_TOPIC, (message) => emitCustomerCall(message.body, false));
+      client?.subscribe(CALL_STATUS_TOPIC, (message) => emitCustomerCall(message.body, true));
     },
     onDisconnect: () => {
       connected = false;
