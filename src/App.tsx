@@ -3,7 +3,6 @@ import type { ConfirmationResult } from "firebase/auth";
 import {
   ArrowLeft,
   Check,
-  Coffee,
   Loader2,
   LogOut,
   MessageSquare,
@@ -40,7 +39,7 @@ const RECAPTCHA_CONTAINER_ID = "recaptcha-container";
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
 
-type ToggleStatus = "AVAILABLE" | "BUSY" | "BREAK";
+type ToggleStatus = "AVAILABLE" | "BUSY";
 
 const STATUS_OPTIONS: {
   id: ToggleStatus;
@@ -67,15 +66,6 @@ const STATUS_OPTIONS: {
     tone: "border-rose-500/20 bg-rose-950/50 text-rose-300",
     active:
       "border-rose-400/70 bg-rose-500/15 text-rose-50 shadow-[0_0_28px_-8px_rgba(244,63,94,0.45)]",
-  },
-  {
-    id: "BREAK",
-    label: "Away",
-    hint: "Temporarily unavailable",
-    icon: Coffee,
-    tone: "border-sky-500/20 bg-sky-950/50 text-sky-300",
-    active:
-      "border-sky-400/70 bg-sky-500/15 text-sky-50 shadow-[0_0_28px_-8px_rgba(56,189,248,0.45)]",
   },
 ];
 
