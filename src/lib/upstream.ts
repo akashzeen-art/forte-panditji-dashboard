@@ -1,7 +1,7 @@
 export const API_UPSTREAM =
   import.meta.env.VITE_API_UPSTREAM || "https://myastrosutra.online";
 
-const BRAND_HOSTS = ["myastrosutra.online", "myastrosutra.live"];
+const BRAND_HOSTS = ["myastrosutra.online", "myastrosutra.live", "panditji.myastrosutra.online"];
 
 export function isBrandHost(hostname?: string): boolean {
   const host = (hostname ?? window.location.hostname).replace(/^www\./i, "");

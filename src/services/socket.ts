@@ -197,6 +197,15 @@ export function startPanditSocket(): void {
   });
 
   client.activate();
+
+  // When tab comes back from background, force-reconnect if socket died
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (connected) return;
+    L("tab visible — reconnecting...");
+    try { void client?.deactivate(); } catch { /* ignore */ }
+    client?.activate();
+  });
 }
 
 export function stopPanditSocket(): void {
