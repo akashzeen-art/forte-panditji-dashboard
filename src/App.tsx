@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ConfirmationResult } from "firebase/auth";
 import {
   ArrowLeft,
@@ -118,6 +118,7 @@ export default function App() {
   const [otp, setOtp] = useState("");
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [resendIn, setResendIn] = useState(0);
+  const otpAutoSubmitRef = useRef<((code: string) => void) | null>(null);
   const [qrCustomer, setQrCustomer] = useState("");
   const [qrSending, setQrSending] = useState(false);
   const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -218,7 +219,14 @@ export default function App() {
     setError("");
     try {
       await fetchPanditByMobile(mobile);
-      const result = await sendOtp(mobile, RECAPTCHA_CONTAINER_ID);
+      const result = await sendOtp(mobile, RECAPTCHA_CONTAINER_ID, (code) => {
+        // Web OTP API / SMS auto-retrieval fired — fill + submit automatically
+        setOtp(code);
+        // Small delay so React re-renders the filled input before submit fires
+        window.setTimeout(() => {
+          otpAutoSubmitRef.current?.(code);
+        }, 400);
+      });
       setConfirmation(result);
       setOtp("");
       setLoginStep("otp");
@@ -471,9 +479,48 @@ export default function App() {
                   autoFocus
                   maxLength={OTP_LENGTH}
                   value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
-                  }
+                  ref={(el) => {
+                    // Register auto-submit handler — called by Web OTP API callback
+                    otpAutoSubmitRef.current = el
+                      ? (code: string) => {
+                          // Programmatically submit the form
+                          el.form?.requestSubmit();
+                          void (async () => {
+                            if (!confirmation) return;
+                            setLoading(true);
+                            setError("");
+                            try {
+                              const user = await verifyOtp(confirmation, code);
+                              if (!phoneMatches(user, mobile)) {
+                                await signOutOtp();
+                                throw new Error("Verified number does not match.");
+                              }
+                              const data = await loginPandit(mobile);
+                              setProfile(data);
+                              setView("dashboard");
+                              setLoginStep("mobile");
+                              setConfirmation(null);
+                              setOtp("");
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : "Login failed");
+                            } finally {
+                              setLoading(false);
+                            }
+                          })();
+                        }
+                      : null;
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH);
+                    setOtp(val);
+                    // iOS Safari: autocomplete="one-time-code" fills the input via change event
+                    // Auto-submit as soon as 6 digits are present
+                    if (val.length === OTP_LENGTH) {
+                      window.setTimeout(() => {
+                        otpAutoSubmitRef.current?.(val);
+                      }, 400);
+                    }
+                  }}
                   placeholder="••••••"
                   className="mb-4 h-12 w-full rounded-xl border border-zinc-800 bg-black px-4 text-center text-xl font-semibold tracking-[0.5em] text-white outline-none placeholder:text-zinc-700 focus:border-amber-500/50"
                 />
