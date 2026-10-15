@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ConfirmationResult } from "firebase/auth";
 import {
   ArrowLeft,
@@ -31,7 +31,7 @@ import {
   type PanditApiStatus,
   type PanditProfile,
 } from "./services/api";
-import { phoneMatches, sendOtp, signOutOtp, verifyOtp, listenNativeInput } from "./services/otp";
+import { phoneMatches, sendOtp, signOutOtp, verifyOtp } from "./services/otp";
 import { isFirebaseConfigured } from "./lib/firebase";
 import {
   isSocketConnected,
@@ -118,7 +118,6 @@ export default function App() {
   const [otp, setOtp] = useState("");
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [resendIn, setResendIn] = useState(0);
-  const otpAutoSubmitRef = useRef<((code: string) => void) | null>(null);
   const [qrCustomer, setQrCustomer] = useState("");
   const [qrSending, setQrSending] = useState(false);
   const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -472,46 +471,9 @@ export default function App() {
                   autoFocus
                   maxLength={OTP_LENGTH}
                   value={otp}
-                  ref={(el) => {
-                    if (!el) { otpAutoSubmitRef.current = null; return; }
-                    // listenNativeInput catches browser autofill that React onChange misses
-                    const cleanup = listenNativeInput(el, (code) => {
-                      setOtp(code);
-                      otpAutoSubmitRef.current?.(code);
-                    });
-                    otpAutoSubmitRef.current = (code: string) => {
-                      if (!confirmation) return;
-                      setLoading(true);
-                      setError("");
-                      verifyOtp(confirmation, code)
-                        .then((user) => {
-                          if (!phoneMatches(user, mobile)) {
-                            void signOutOtp();
-                            throw new Error("Verified number does not match.");
-                          }
-                          return loginPandit(mobile);
-                        })
-                        .then((data) => {
-                          setProfile(data);
-                          setView("dashboard");
-                          setLoginStep("mobile");
-                          setConfirmation(null);
-                          setOtp("");
-                          cleanup();
-                        })
-                        .catch((err) => {
-                          setError(err instanceof Error ? err.message : "Login failed");
-                          setLoading(false);
-                        });
-                    };
-                  }}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH);
-                    setOtp(val);
-                    if (val.length === OTP_LENGTH) {
-                      window.setTimeout(() => otpAutoSubmitRef.current?.(val), 300);
-                    }
-                  }}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
+                  }
                   placeholder="••••••"
                   className="mb-4 h-12 w-full rounded-xl border border-zinc-800 bg-black px-4 text-center text-xl font-semibold tracking-[0.5em] text-white outline-none placeholder:text-zinc-700 focus:border-amber-500/50"
                 />

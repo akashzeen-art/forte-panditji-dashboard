@@ -89,39 +89,8 @@ function otpErrorMessage(err: unknown): string {
   }
 }
 
-// ── Web OTP API (Chrome Android auto-retrieval) ──────────────────────────────
-// NOTE: Web OTP API requires SMS format: "Your OTP is 123456\n@domain.com #123456"
-// Firebase SMS does NOT use this format, so Web OTP API won't fire.
-// Instead we rely on:
-//   1. Firebase verificationCompleted (Android native auto-retrieval via Play Services)
-//   2. autocomplete="one-time-code" + native input event listener (iOS Safari + Chrome autofill)
-
-/** Attaches a native 'input' event listener to an element.
- *  React's onChange misses browser-autofill events on some browsers.
- *  Returns cleanup function. */
-export function listenNativeInput(
-  el: HTMLInputElement,
-  onFilled: (code: string) => void,
-): () => void {
-  const handler = () => {
-    const val = el.value.replace(/\D/g, "").slice(0, 6);
-    if (val.length === 6) {
-      window.setTimeout(() => onFilled(val), 300);
-    }
-  };
-  el.addEventListener("input", handler);
-  el.addEventListener("change", handler);
-  return () => {
-    el.removeEventListener("input", handler);
-    el.removeEventListener("change", handler);
-  };
-}
-
 /** Sends an SMS OTP to +91<mobile> via Firebase Phone Auth (invisible reCAPTCHA). */
-export async function sendOtp(
-  mobile: string,
-  recaptchaContainerId: string,
-): Promise<ConfirmationResult> {
+export async function sendOtp(mobile: string, recaptchaContainerId: string): Promise<ConfirmationResult> {
   const msisdn = normalizeMobile(mobile);
   if (msisdn.length !== 10) throw new Error("Enter a valid 10-digit mobile number");
 
