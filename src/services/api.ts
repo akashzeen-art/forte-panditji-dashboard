@@ -110,7 +110,9 @@ export async function fetchPanditByMobile(mobile: string): Promise<PanditProfile
   );
 
   if (response.status === 404) {
-    throw new PanditNotFoundError("No Pandit Ji profile found for this number");
+    throw new PanditNotFoundError(
+      `Mobile number ${msisdn} is not registered as a Pandit Ji. Please contact admin.`,
+    );
   }
   if (!response.ok) {
     throw new Error(`Could not load profile (${response.status})`);
