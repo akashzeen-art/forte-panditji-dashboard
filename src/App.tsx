@@ -6,7 +6,6 @@ import {
   Loader2,
   LogOut,
   MessageSquare,
-  Phone,
   PhoneOff,
   QrCode,
   Send,
@@ -122,7 +121,6 @@ export default function App() {
   const [qrCustomer, setQrCustomer] = useState("");
   const [qrSending, setQrSending] = useState(false);
   const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
-  const [liveCaller, setLiveCaller] = useState<{ customer: string; ended: boolean } | null>(null);
   const firebaseReady = isFirebaseConfigured();
 
   const panditDigits = normalizeMobile(profile?.phoneNumber || mobile);
@@ -209,14 +207,9 @@ export default function App() {
     return onCustomerCall(({ customer, pandit, phase }) => {
       if (pandit && pandit !== panditDigits) return;
       if (phase === "oncall") {
-        setLiveCaller({ customer, ended: false });
         setQrCustomer(customer);
         setQrResult(null);
-        return;
       }
-      setLiveCaller((prev) =>
-        prev && prev.customer === customer ? { ...prev, ended: true } : prev,
-      );
     });
   }, [panditDigits, view]);
 
@@ -555,10 +548,6 @@ export default function App() {
                     <p className="truncate font-semibold text-white">{profile.fullName}</p>
                     <p className="truncate text-xs text-zinc-500">{profile.specialty}</p>
                     <p className="mt-1 text-xs text-zinc-500 capitalize">{profile.gender}</p>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-zinc-600">
-                      <Phone className="h-3 w-3" />
-                      +91 {profile.phoneNumber}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -647,41 +636,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {liveCaller && (
-                  <div
-                    className={`mb-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
-                      liveCaller.ended
-                        ? "border-zinc-700 bg-zinc-900 text-zinc-400"
-                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                    }`}
-                  >
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${
-                        liveCaller.ended ? "bg-zinc-500" : "animate-pulse bg-emerald-400"
-                      }`}
-                    />
-                    {liveCaller.ended ? "Last caller" : "On call with"} +91 {liveCaller.customer}
-                    {liveCaller.ended && <span className="font-normal">· call ended</span>}
-                  </div>
-                )}
-
-                <div className="mb-3 flex gap-2">
-                  <span className="flex h-11 items-center rounded-xl border border-zinc-800 bg-black px-3 text-sm text-zinc-400">
-                    +91
-                  </span>
-                  <input
-                    inputMode="numeric"
-                    maxLength={10}
-                    value={qrCustomer}
-                    onChange={(e) => {
-                      setQrCustomer(e.target.value.replace(/\D/g, "").slice(0, 10));
-                      setQrResult(null);
-                    }}
-                    placeholder="Customer mobile"
-                    aria-label="Customer mobile number"
-                    className="h-11 min-w-0 flex-1 rounded-xl border border-zinc-800 bg-black px-3.5 text-base text-white outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
-                  />
-                </div>
+                <input type="hidden" value={qrCustomer} readOnly />
 
                 <button
                   type="submit"
