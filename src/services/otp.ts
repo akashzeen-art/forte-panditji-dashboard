@@ -90,26 +90,37 @@ function otpErrorMessage(err: unknown): string {
 }
 
 // ── Web OTP API (Chrome Android auto-retrieval) ──────────────────────────────
+// NOTE: Web OTP API requires SMS format: "Your OTP is 123456\n@domain.com #123456"
+// Firebase SMS does NOT use this format, so Web OTP API won't fire.
+// Instead we rely on:
+//   1. Firebase verificationCompleted (Android native auto-retrieval via Play Services)
+//   2. autocomplete="one-time-code" + native input event listener (iOS Safari + Chrome autofill)
 
-type OtpCredential = { code: string };
-
-/** Starts Web OTP API listener. Resolves with the 6-digit code when SMS arrives, or null if unsupported/timed-out. */
-function listenWebOtp(signal: AbortSignal): Promise<string | null> {
-  if (typeof navigator === "undefined" || !("credentials" in navigator)) return Promise.resolve(null);
-  return (navigator.credentials as unknown as {
-    get(opts: { otp: { transport: string[] }; signal: AbortSignal }): Promise<OtpCredential | null>;
-  })
-    .get({ otp: { transport: ["sms"] }, signal })
-    .then((c) => c?.code ?? null)
-    .catch(() => null);
+/** Attaches a native 'input' event listener to an element.
+ *  React's onChange misses browser-autofill events on some browsers.
+ *  Returns cleanup function. */
+export function listenNativeInput(
+  el: HTMLInputElement,
+  onFilled: (code: string) => void,
+): () => void {
+  const handler = () => {
+    const val = el.value.replace(/\D/g, "").slice(0, 6);
+    if (val.length === 6) {
+      window.setTimeout(() => onFilled(val), 300);
+    }
+  };
+  el.addEventListener("input", handler);
+  el.addEventListener("change", handler);
+  return () => {
+    el.removeEventListener("input", handler);
+    el.removeEventListener("change", handler);
+  };
 }
 
-/** Sends an SMS OTP to +91<mobile> via Firebase Phone Auth (invisible reCAPTCHA).
- *  Also starts Web OTP API listener so Chrome Android auto-fills + auto-submits. */
+/** Sends an SMS OTP to +91<mobile> via Firebase Phone Auth (invisible reCAPTCHA). */
 export async function sendOtp(
   mobile: string,
   recaptchaContainerId: string,
-  onAutoVerify?: (code: string) => void,
 ): Promise<ConfirmationResult> {
   const msisdn = normalizeMobile(mobile);
   if (msisdn.length !== 10) throw new Error("Enter a valid 10-digit mobile number");
@@ -122,23 +133,10 @@ export async function sendOtp(
   }
 
   try {
-    const confirmation = await withTimeout(
+    return await withTimeout(
       signInWithPhoneNumber(getFirebaseAuth(), `+91${msisdn}`, createVerifier(recaptchaContainerId)),
       RECAPTCHA_TIMEOUT_MS,
     );
-
-    // Start Web OTP API in background — Chrome Android intercepts SMS automatically
-    if (onAutoVerify) {
-      const abort = new AbortController();
-      // Cancel after 2 minutes
-      const cancelTimer = window.setTimeout(() => abort.abort(), 120_000);
-      listenWebOtp(abort.signal).then((code) => {
-        window.clearTimeout(cancelTimer);
-        if (code && code.length === 6) onAutoVerify(code);
-      });
-    }
-
-    return confirmation;
   } catch (err) {
     resetVerifier();
     throw new Error(otpErrorMessage(err));

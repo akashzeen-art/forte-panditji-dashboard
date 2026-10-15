@@ -31,7 +31,7 @@ import {
   type PanditApiStatus,
   type PanditProfile,
 } from "./services/api";
-import { phoneMatches, sendOtp, signOutOtp, verifyOtp } from "./services/otp";
+import { phoneMatches, sendOtp, signOutOtp, verifyOtp, listenNativeInput } from "./services/otp";
 import { isFirebaseConfigured } from "./lib/firebase";
 import {
   isSocketConnected,
@@ -219,14 +219,7 @@ export default function App() {
     setError("");
     try {
       await fetchPanditByMobile(mobile);
-      const result = await sendOtp(mobile, RECAPTCHA_CONTAINER_ID, (code) => {
-        // Web OTP API / SMS auto-retrieval fired — fill + submit automatically
-        setOtp(code);
-        // Small delay so React re-renders the filled input before submit fires
-        window.setTimeout(() => {
-          otpAutoSubmitRef.current?.(code);
-        }, 400);
-      });
+      const result = await sendOtp(mobile, RECAPTCHA_CONTAINER_ID);
       setConfirmation(result);
       setOtp("");
       setLoginStep("otp");
@@ -480,45 +473,43 @@ export default function App() {
                   maxLength={OTP_LENGTH}
                   value={otp}
                   ref={(el) => {
-                    // Register auto-submit handler — called by Web OTP API callback
-                    otpAutoSubmitRef.current = el
-                      ? (code: string) => {
-                          // Programmatically submit the form
-                          el.form?.requestSubmit();
-                          void (async () => {
-                            if (!confirmation) return;
-                            setLoading(true);
-                            setError("");
-                            try {
-                              const user = await verifyOtp(confirmation, code);
-                              if (!phoneMatches(user, mobile)) {
-                                await signOutOtp();
-                                throw new Error("Verified number does not match.");
-                              }
-                              const data = await loginPandit(mobile);
-                              setProfile(data);
-                              setView("dashboard");
-                              setLoginStep("mobile");
-                              setConfirmation(null);
-                              setOtp("");
-                            } catch (err) {
-                              setError(err instanceof Error ? err.message : "Login failed");
-                            } finally {
-                              setLoading(false);
-                            }
-                          })();
-                        }
-                      : null;
+                    if (!el) { otpAutoSubmitRef.current = null; return; }
+                    // listenNativeInput catches browser autofill that React onChange misses
+                    const cleanup = listenNativeInput(el, (code) => {
+                      setOtp(code);
+                      otpAutoSubmitRef.current?.(code);
+                    });
+                    otpAutoSubmitRef.current = (code: string) => {
+                      if (!confirmation) return;
+                      setLoading(true);
+                      setError("");
+                      verifyOtp(confirmation, code)
+                        .then((user) => {
+                          if (!phoneMatches(user, mobile)) {
+                            void signOutOtp();
+                            throw new Error("Verified number does not match.");
+                          }
+                          return loginPandit(mobile);
+                        })
+                        .then((data) => {
+                          setProfile(data);
+                          setView("dashboard");
+                          setLoginStep("mobile");
+                          setConfirmation(null);
+                          setOtp("");
+                          cleanup();
+                        })
+                        .catch((err) => {
+                          setError(err instanceof Error ? err.message : "Login failed");
+                          setLoading(false);
+                        });
+                    };
                   }}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH);
                     setOtp(val);
-                    // iOS Safari: autocomplete="one-time-code" fills the input via change event
-                    // Auto-submit as soon as 6 digits are present
                     if (val.length === OTP_LENGTH) {
-                      window.setTimeout(() => {
-                        otpAutoSubmitRef.current?.(val);
-                      }, 400);
+                      window.setTimeout(() => otpAutoSubmitRef.current?.(val), 300);
                     }
                   }}
                   placeholder="••••••"
