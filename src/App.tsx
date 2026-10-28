@@ -209,7 +209,13 @@ export default function App() {
       if (phase === "oncall") {
         setQrCustomer(customer);
         setQrResult(null);
+        return;
       }
+      setQrCustomer((current) => {
+        if (current !== customer) return current;
+        setQrResult(null);
+        return "";
+      });
     });
   }, [panditDigits, view]);
 
