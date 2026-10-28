@@ -297,7 +297,7 @@ export default function App() {
     setQrResult(null);
     try {
       await sendPaymentQr(qrCustomer);
-      setQrResult({ ok: true, text: `QR sent to +91 ${qrCustomer}` });
+      setQrResult({ ok: true, text: "QR sent to the customer" });
     } catch (err) {
       setQrResult({ ok: false, text: err instanceof Error ? err.message : "Could not send QR" });
     } finally {
@@ -631,12 +631,27 @@ export default function App() {
                       Send payment QR
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-600">
-                      Customer number fills in automatically when a call connects
+                      Shows the payment QR on the customer&apos;s screen
                     </p>
                   </div>
                 </div>
 
-                <input type="hidden" value={qrCustomer} readOnly />
+                <div
+                  className={`mb-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                    qrCustomer.length === 10
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      : "border-zinc-800 bg-black text-zinc-500"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      qrCustomer.length === 10 ? "animate-pulse bg-emerald-400" : "bg-zinc-600"
+                    }`}
+                  />
+                  {qrCustomer.length === 10
+                    ? "Customer connected — ready to send"
+                    : "Waiting for a call to connect"}
+                </div>
 
                 <button
                   type="submit"
