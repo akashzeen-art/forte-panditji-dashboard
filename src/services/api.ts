@@ -26,11 +26,13 @@ const PANDIT_BY_MOBILE_PATH =
   import.meta.env.VITE_ASTRO_PANDIT_BY_MOBILE_URL || "/api/astro/pandit";
 const PANDIT_STATUS_PATH =
   import.meta.env.VITE_ASTRO_PANDIT_STATUS_URL || "/api/astro/pandit/status";
-const SHOW_QR_PATH = import.meta.env.VITE_ASTRO_SHOW_QR_URL || "/api/astro/show-qr";
 const GET_DATA_PATH =
   import.meta.env.VITE_ASTRO_GET_DATA_URL || "/api/astro/getdata";
 const CONSULTATION_ITEMS_PATH =
   import.meta.env.VITE_CONSULTATION_ITEMS_URL || "/api/consultation/items";
+const PAYMENT_LINK_PATH =
+  import.meta.env.VITE_ASTRO_PAYMENT_LINK_URL || "/api/astro/payment-link";
+const DEFAULT_PORTAL_ID = import.meta.env.VITE_PORTAL_ID || "1028";
 const SESSION_KEY = "pandit_dashboard_mobile";
 const PROFILE_KEY = "pandit_dashboard_profile";
 
@@ -238,20 +240,59 @@ export async function fetchConsultationItems(): Promise<ConsultationItem[]> {
     .filter((item) => item.id > 0 && item.status === 1);
 }
 
-/** GET /api/astro/show-qr?customer= — backend pushes the payment QR to that customer's screen. */
-export async function sendPaymentQr(customerMobile: string): Promise<void> {
-  const customer = normalizeMobile(customerMobile);
+export type PaymentLinkPayload = {
+  portalId: number | string;
+  customer: string;
+  customerName: string;
+  agent: string;
+  amount: number;
+  itemCode: string;
+};
+
+/** POST /api/astro/payment-link — push payment link to the connected customer's screen. */
+export async function sendPaymentLink(input: {
+  customer: string;
+  customerName: string;
+  agent: string;
+  amount: number;
+  itemCode: string;
+  portalId?: number | string;
+}): Promise<void> {
+  const customer = normalizeMobile(input.customer);
+  const agent = normalizeMobile(input.agent);
   if (customer.length !== 10) {
-    throw new Error("Enter the customer's 10-digit mobile number");
+    throw new Error("Connect a customer call before sending a payment link");
+  }
+  if (agent.length !== 10) {
+    throw new Error("Pandit Ji mobile is missing");
+  }
+  if (!input.itemCode.trim()) {
+    throw new Error("Item code is required");
   }
 
-  const response = await fetch(
-    `${resolveApiUrl(SHOW_QR_PATH)}?customer=${encodeURIComponent(customer)}`,
-    { method: "GET", headers: { Accept: "application/json" } },
-  );
+  const portalRaw = String(input.portalId ?? DEFAULT_PORTAL_ID).trim() || "1028";
+  const portalNum = Number(portalRaw);
+  const payload: PaymentLinkPayload = {
+    portalId: Number.isFinite(portalNum) ? portalNum : portalRaw,
+    customer,
+    customerName: (input.customerName || "Caller").trim() || "Caller",
+    agent,
+    amount: Number(input.amount) || 0,
+    itemCode: input.itemCode.trim(),
+  };
+
+  const response = await fetch(resolveApiUrl(PAYMENT_LINK_PATH), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 
   if (!response.ok) {
-    throw new Error(`Could not send QR (${response.status})`);
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Payment link failed (${response.status})`);
   }
 }
 

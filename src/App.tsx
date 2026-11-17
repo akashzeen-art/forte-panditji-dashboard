@@ -11,8 +11,6 @@ import {
   MapPin,
   MessageSquare,
   PhoneOff,
-  QrCode,
-  Send,
   ShieldCheck,
   Sparkles,
   Star,
@@ -30,7 +28,7 @@ import {
   loginPandit,
   logoutPandit,
   normalizeMobile,
-  sendPaymentQr,
+  sendPaymentLink,
   statusLabel,
   updatePanditStatus,
   normalizeApiStatus,
@@ -131,13 +129,16 @@ export default function App() {
   const qrCustomerRef = useRef("");
   const [callerDetails, setCallerDetails] = useState<CustomerCallDetails | null>(null);
   const [callerLoading, setCallerLoading] = useState(false);
-  const [qrSending, setQrSending] = useState(false);
-  const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [catalog, setCatalog] = useState<ConsultationItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState("");
   const [filterCategory, setFilterCategory] = useState("ALL");
   const [filterType, setFilterType] = useState("ALL");
+  const [sendingItemId, setSendingItemId] = useState<number | null>(null);
+  const [paymentLinkResult, setPaymentLinkResult] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
   const firebaseReady = isFirebaseConfigured();
 
   const panditDigits = normalizeMobile(profile?.phoneNumber || mobile);
@@ -277,7 +278,7 @@ export default function App() {
       if (phase === "oncall") {
         qrCustomerRef.current = customer;
         setQrCustomer(customer);
-        setQrResult(null);
+        setPaymentLinkResult(null);
         setCallerDetails(null);
         setCallerLoading(true);
         fetchCustomerDetails(customer)
@@ -305,7 +306,8 @@ export default function App() {
       setQrCustomer("");
       setCallerDetails(null);
       setCallerLoading(false);
-      setQrResult(null);
+      setPaymentLinkResult(null);
+      setSendingItemId(null);
       // Backend resets this Pandit Ji's status shortly after hangup
       refreshProfile();
       timers.push(window.setTimeout(refreshProfile, 4000));
@@ -394,18 +396,42 @@ export default function App() {
     }
   };
 
-  const handleSendQr = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (qrSending) return;
-    setQrSending(true);
-    setQrResult(null);
+  const handleSendPaymentLink = async (item: ConsultationItem) => {
+    if (sendingItemId != null) return;
+    if (qrCustomer.length !== 10) {
+      setPaymentLinkResult({
+        ok: false,
+        text: "Wait for a customer call to connect first",
+      });
+      return;
+    }
+    const agent = normalizeMobile(profile?.phoneNumber || "");
+    if (agent.length !== 10) {
+      setPaymentLinkResult({ ok: false, text: "Pandit Ji mobile is missing" });
+      return;
+    }
+
+    setSendingItemId(item.id);
+    setPaymentLinkResult(null);
     try {
-      await sendPaymentQr(qrCustomer);
-      setQrResult({ ok: true, text: "QR sent to the customer" });
+      await sendPaymentLink({
+        customer: qrCustomer,
+        customerName: callerDetails?.fullName || "Caller",
+        agent,
+        amount: item.amount,
+        itemCode: item.code,
+      });
+      setPaymentLinkResult({
+        ok: true,
+        text: `Payment link sent for ${item.description} (₹${item.amount.toLocaleString("en-IN")})`,
+      });
     } catch (err) {
-      setQrResult({ ok: false, text: err instanceof Error ? err.message : "Could not send QR" });
+      setPaymentLinkResult({
+        ok: false,
+        text: err instanceof Error ? err.message : "Could not send payment link",
+      });
     } finally {
-      setQrSending(false);
+      setSendingItemId(null);
     }
   };
 
@@ -800,9 +826,26 @@ export default function App() {
                       Consultation items
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-600">
-                      Pooja &amp; product catalog — filter and browse
+                      Tap a box to send that payment link to the caller&apos;s screen
                     </p>
                   </div>
+                </div>
+
+                <div
+                  className={`mb-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                    qrCustomer.length === 10
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      : "border-zinc-800 bg-black text-zinc-500"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      qrCustomer.length === 10 ? "animate-pulse bg-emerald-400" : "bg-zinc-600"
+                    }`}
+                  />
+                  {qrCustomer.length === 10
+                    ? "Customer connected — tap an item to send payment"
+                    : "Waiting for a call to connect"}
                 </div>
 
                 <div className="mb-3 flex flex-wrap gap-2">
@@ -855,109 +898,75 @@ export default function App() {
                   </p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                    {filteredCatalog.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex aspect-square flex-col justify-between rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 to-black p-3 shadow-inner"
-                      >
-                        <div>
-                          <div className="mb-2 flex flex-wrap items-center gap-1">
-                            <span className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-400">
-                              {item.code}
-                            </span>
-                            <span
-                              className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                                item.itemType === "PRODUCT"
-                                  ? "border border-sky-500/30 bg-sky-500/10 text-sky-300"
-                                  : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
-                              }`}
-                            >
-                              {item.itemType}
-                            </span>
+                    {filteredCatalog.map((item) => {
+                      const busy = sendingItemId === item.id;
+                      const disabled =
+                        sendingItemId != null || qrCustomer.length !== 10;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => void handleSendPaymentLink(item)}
+                          className={`flex aspect-square flex-col justify-between rounded-2xl border bg-gradient-to-br from-zinc-900 to-black p-3 text-left shadow-inner transition ${
+                            disabled
+                              ? "cursor-not-allowed border-zinc-800 opacity-50"
+                              : "border-zinc-700 hover:border-amber-400/50 hover:from-zinc-800 hover:to-zinc-950 active:scale-[0.98]"
+                          }`}
+                        >
+                          <div>
+                            <div className="mb-2 flex flex-wrap items-center gap-1">
+                              <span className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-400">
+                                {item.code}
+                              </span>
+                              <span
+                                className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                                  item.itemType === "PRODUCT"
+                                    ? "border border-sky-500/30 bg-sky-500/10 text-sky-300"
+                                    : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                                }`}
+                              >
+                                {item.itemType}
+                              </span>
+                            </div>
+                            <p className="line-clamp-3 text-sm font-semibold leading-snug text-white">
+                              {item.description}
+                            </p>
+                            <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                              {item.category}
+                            </p>
                           </div>
-                          <p className="line-clamp-3 text-sm font-semibold leading-snug text-white">
-                            {item.description}
-                          </p>
-                          <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-                            {item.category}
-                          </p>
-                        </div>
-                        <p className="mt-2 text-base font-bold text-amber-300">
-                          ₹{item.amount.toLocaleString("en-IN")}
-                        </p>
-                      </div>
-                    ))}
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <p className="text-base font-bold text-amber-300">
+                              ₹{item.amount.toLocaleString("en-IN")}
+                            </p>
+                            {busy ? (
+                              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-amber-300" />
+                            ) : (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                                Send
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
-              </div>
 
-              {/* Payment QR */}
-              <form
-                onSubmit={(e) => void handleSendQr(e)}
-                className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4"
-              >
-                <div className="mb-3 flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
-                    <QrCode className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                      Send payment QR
-                    </p>
-                    <p className="mt-0.5 text-xs text-zinc-600">
-                      Shows the payment QR on the customer&apos;s screen
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  className={`mb-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
-                    qrCustomer.length === 10
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                      : "border-zinc-800 bg-black text-zinc-500"
-                  }`}
-                >
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${
-                      qrCustomer.length === 10 ? "animate-pulse bg-emerald-400" : "bg-zinc-600"
-                    }`}
-                  />
-                  {qrCustomer.length === 10
-                    ? "Customer connected — ready to send"
-                    : "Waiting for a call to connect"}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={qrSending || qrCustomer.length !== 10}
-                  className="flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-40"
-                >
-                  {qrSending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending QR…
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" />
-                      Send QR
-                    </>
-                  )}
-                </button>
-
-                {qrResult && (
+                {paymentLinkResult && (
                   <p
                     className={`mt-3 flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm ${
-                      qrResult.ok
+                      paymentLinkResult.ok
                         ? "border-emerald-500/20 bg-emerald-950/40 text-emerald-300"
                         : "border-red-500/20 bg-red-950/40 text-red-300"
                     }`}
                   >
-                    {qrResult.ok && <Check className="h-4 w-4 shrink-0" />}
-                    {qrResult.text}
+                    {paymentLinkResult.ok && <Check className="h-4 w-4 shrink-0" />}
+                    {paymentLinkResult.text}
                   </p>
                 )}
-              </form>
+              </div>
 
               {error && (
                 <p className="mb-4 rounded-xl border border-red-500/20 bg-red-950/40 px-3.5 py-2.5 text-sm text-red-300">
