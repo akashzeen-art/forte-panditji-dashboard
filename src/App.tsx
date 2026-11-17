@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConfirmationResult } from "firebase/auth";
 import {
   ArrowLeft,
   Calendar,
   Check,
   Clock,
+  Filter,
   Loader2,
   LogOut,
   MapPin,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   clearSession,
+  fetchConsultationItems,
   fetchCustomerDetails,
   fetchPanditByMobile,
   getStoredMobile,
@@ -33,6 +35,7 @@ import {
   updatePanditStatus,
   normalizeApiStatus,
   storeProfile,
+  type ConsultationItem,
   type CustomerCallDetails,
   type PanditApiStatus,
   type PanditProfile,
@@ -130,9 +133,32 @@ export default function App() {
   const [callerLoading, setCallerLoading] = useState(false);
   const [qrSending, setQrSending] = useState(false);
   const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [catalog, setCatalog] = useState<ConsultationItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [filterCategory, setFilterCategory] = useState("ALL");
+  const [filterType, setFilterType] = useState("ALL");
   const firebaseReady = isFirebaseConfigured();
 
   const panditDigits = normalizeMobile(profile?.phoneNumber || mobile);
+
+  const catalogCategories = useMemo(() => {
+    const set = new Set(catalog.map((i) => i.category).filter(Boolean));
+    return ["ALL", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [catalog]);
+
+  const catalogTypes = useMemo(() => {
+    const set = new Set(catalog.map((i) => i.itemType).filter(Boolean));
+    return ["ALL", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [catalog]);
+
+  const filteredCatalog = useMemo(() => {
+    return catalog.filter((item) => {
+      if (filterCategory !== "ALL" && item.category !== filterCategory) return false;
+      if (filterType !== "ALL" && item.itemType !== filterType) return false;
+      return true;
+    });
+  }, [catalog, filterCategory, filterType]);
 
   const syncConnection = useCallback(() => {
     setWsConnected(isSocketConnected());
@@ -192,6 +218,32 @@ export default function App() {
   useEffect(() => {
     if (view === "dashboard" && profile) storeProfile(profile);
   }, [view, profile]);
+
+  // Consultation catalog (pooja / stones)
+  useEffect(() => {
+    if (view !== "dashboard") return;
+    let cancelled = false;
+    setCatalogLoading(true);
+    setCatalogError("");
+    fetchConsultationItems()
+      .then((items) => {
+        if (!cancelled) setCatalog(items);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCatalog([]);
+          setCatalogError(
+            err instanceof Error ? err.message : "Could not load consultation items",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -703,9 +755,6 @@ export default function App() {
                       <p className="mt-0.5 text-base font-semibold text-white">
                         {callerDetails?.fullName || "Caller"}
                       </p>
-                      <p className="mt-0.5 text-xs text-emerald-200/70">
-                        +91 {qrCustomer}
-                      </p>
                     </div>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       <div className="rounded-xl border border-zinc-800 bg-black px-3 py-2.5">
@@ -736,6 +785,108 @@ export default function App() {
                         </p>
                       </div>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Consultation items catalog */}
+              <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <div className="mb-3 flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-300">
+                    <Filter className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      Consultation items
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-600">
+                      Pooja &amp; product catalog — filter and browse
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <label className="flex min-w-[9rem] flex-1 flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                      Category
+                    </span>
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="h-10 rounded-xl border border-zinc-700 bg-black px-3 text-sm text-zinc-100 outline-none focus:border-violet-500/50"
+                    >
+                      {catalogCategories.map((c) => (
+                        <option key={c} value={c}>
+                          {c === "ALL" ? "All categories" : c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex min-w-[9rem] flex-1 flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                      Type
+                    </span>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="h-10 rounded-xl border border-zinc-700 bg-black px-3 text-sm text-zinc-100 outline-none focus:border-violet-500/50"
+                    >
+                      {catalogTypes.map((t) => (
+                        <option key={t} value={t}>
+                          {t === "ALL" ? "All types" : t}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                {catalogLoading ? (
+                  <p className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-black px-3.5 py-3 text-sm text-zinc-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading items…
+                  </p>
+                ) : catalogError ? (
+                  <p className="rounded-xl border border-red-500/20 bg-red-950/40 px-3.5 py-2.5 text-sm text-red-300">
+                    {catalogError}
+                  </p>
+                ) : filteredCatalog.length === 0 ? (
+                  <p className="rounded-xl border border-zinc-800 bg-black px-3.5 py-3 text-sm text-zinc-500">
+                    No items match these filters.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    {filteredCatalog.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex aspect-square flex-col justify-between rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 to-black p-3 shadow-inner"
+                      >
+                        <div>
+                          <div className="mb-2 flex flex-wrap items-center gap-1">
+                            <span className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-400">
+                              {item.code}
+                            </span>
+                            <span
+                              className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                                item.itemType === "PRODUCT"
+                                  ? "border border-sky-500/30 bg-sky-500/10 text-sky-300"
+                                  : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                              }`}
+                            >
+                              {item.itemType}
+                            </span>
+                          </div>
+                          <p className="line-clamp-3 text-sm font-semibold leading-snug text-white">
+                            {item.description}
+                          </p>
+                          <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                            {item.category}
+                          </p>
+                        </div>
+                        <p className="mt-2 text-base font-bold text-amber-300">
+                          ₹{item.amount.toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

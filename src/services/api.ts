@@ -29,6 +29,8 @@ const PANDIT_STATUS_PATH =
 const SHOW_QR_PATH = import.meta.env.VITE_ASTRO_SHOW_QR_URL || "/api/astro/show-qr";
 const GET_DATA_PATH =
   import.meta.env.VITE_ASTRO_GET_DATA_URL || "/api/astro/getdata";
+const CONSULTATION_ITEMS_PATH =
+  import.meta.env.VITE_CONSULTATION_ITEMS_URL || "/api/consultation/items";
 const SESSION_KEY = "pandit_dashboard_mobile";
 const PROFILE_KEY = "pandit_dashboard_profile";
 
@@ -39,6 +41,18 @@ export type CustomerCallDetails = {
   birthDate: string;
   birthTime: string;
   birthPlace: string;
+};
+
+export type ConsultationItem = {
+  id: number;
+  code: string;
+  category: string;
+  amount: number;
+  itemType: string;
+  description: string;
+  status: number;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 function mapProfile(data: Record<string, unknown>, mobile: string): PanditProfile {
@@ -190,6 +204,38 @@ export async function fetchCustomerDetails(
     birthTime: birthTime || "—",
     birthPlace: birthPlace || "—",
   };
+}
+
+/** GET /api/consultation/items — pooja / stone catalog for Pandit Ji. */
+export async function fetchConsultationItems(): Promise<ConsultationItem[]> {
+  const response = await fetch(resolveApiUrl(CONSULTATION_ITEMS_PATH), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not load consultation items (${response.status})`);
+  }
+
+  const data = (await response.json()) as unknown;
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .map((raw) => {
+      const row = raw as Record<string, unknown>;
+      return {
+        id: Number(row.id) || 0,
+        code: String(row.code || "").trim(),
+        category: String(row.category || "").trim() || "Other",
+        amount: Number(row.amount) || 0,
+        itemType: String(row.itemType || "").trim() || "SERVICE",
+        description: String(row.description || "").trim() || "Item",
+        status: Number(row.status) || 0,
+        createdAt: row.createdAt ? String(row.createdAt) : undefined,
+        updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
+      } satisfies ConsultationItem;
+    })
+    .filter((item) => item.id > 0 && item.status === 1);
 }
 
 /** GET /api/astro/show-qr?customer= — backend pushes the payment QR to that customer's screen. */
