@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ConfirmationResult } from "firebase/auth";
 import {
   ArrowLeft,
+  Calendar,
   Check,
+  Clock,
   Loader2,
   LogOut,
+  MapPin,
   MessageSquare,
   PhoneOff,
   QrCode,
@@ -12,11 +15,13 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
+  UserRound,
   Wifi,
   WifiOff,
 } from "lucide-react";
 import {
   clearSession,
+  fetchCustomerDetails,
   fetchPanditByMobile,
   getStoredMobile,
   getStoredProfile,
@@ -28,6 +33,7 @@ import {
   updatePanditStatus,
   normalizeApiStatus,
   storeProfile,
+  type CustomerCallDetails,
   type PanditApiStatus,
   type PanditProfile,
 } from "./services/api";
@@ -119,6 +125,9 @@ export default function App() {
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [resendIn, setResendIn] = useState(0);
   const [qrCustomer, setQrCustomer] = useState("");
+  const qrCustomerRef = useRef("");
+  const [callerDetails, setCallerDetails] = useState<CustomerCallDetails | null>(null);
+  const [callerLoading, setCallerLoading] = useState(false);
   const [qrSending, setQrSending] = useState(false);
   const [qrResult, setQrResult] = useState<{ ok: boolean; text: string } | null>(null);
   const firebaseReady = isFirebaseConfigured();
@@ -204,19 +213,56 @@ export default function App() {
   useEffect(() => {
     if (panditDigits.length !== 10 || view !== "dashboard") return;
 
-    return onCustomerCall(({ customer, pandit, phase }) => {
+    const timers: number[] = [];
+    const refreshProfile = () => {
+      fetchPanditByMobile(panditDigits)
+        .then((data) => setProfile(data))
+        .catch(() => {});
+    };
+
+    const off = onCustomerCall(({ customer, pandit, phase }) => {
       if (pandit && pandit !== panditDigits) return;
       if (phase === "oncall") {
+        qrCustomerRef.current = customer;
         setQrCustomer(customer);
         setQrResult(null);
+        setCallerDetails(null);
+        setCallerLoading(true);
+        fetchCustomerDetails(customer)
+          .then((details) => {
+            if (qrCustomerRef.current !== customer) return;
+            setCallerDetails(details);
+          })
+          .catch(() => {
+            if (qrCustomerRef.current !== customer) return;
+            setCallerDetails({
+              mobile: customer,
+              fullName: "Caller",
+              birthDate: "—",
+              birthTime: "—",
+              birthPlace: "—",
+            });
+          })
+          .finally(() => {
+            if (qrCustomerRef.current === customer) setCallerLoading(false);
+          });
         return;
       }
-      setQrCustomer((current) => {
-        if (current !== customer) return current;
-        setQrResult(null);
-        return "";
-      });
+      if (qrCustomerRef.current !== customer) return;
+      qrCustomerRef.current = "";
+      setQrCustomer("");
+      setCallerDetails(null);
+      setCallerLoading(false);
+      setQrResult(null);
+      // Backend resets this Pandit Ji's status shortly after hangup
+      refreshProfile();
+      timers.push(window.setTimeout(refreshProfile, 4000));
     });
+
+    return () => {
+      off();
+      timers.forEach((t) => window.clearTimeout(t));
+    };
   }, [panditDigits, view]);
 
   const requestOtp = async () => {
@@ -620,6 +666,77 @@ export default function App() {
                     <Check className="h-4 w-4 shrink-0" />
                     {success}
                   </p>
+                )}
+              </div>
+
+              {/* Connected caller details */}
+              <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <div className="mb-3 flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-400">
+                    <UserRound className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                      Caller details
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-600">
+                      Shown when the customer call is connected
+                    </p>
+                  </div>
+                </div>
+
+                {qrCustomer.length !== 10 ? (
+                  <p className="rounded-xl border border-zinc-800 bg-black px-3.5 py-3 text-sm text-zinc-500">
+                    Waiting for a connected call…
+                  </p>
+                ) : callerLoading ? (
+                  <p className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-black px-3.5 py-3 text-sm text-zinc-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading caller profile…
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">
+                        Name
+                      </p>
+                      <p className="mt-0.5 text-base font-semibold text-white">
+                        {callerDetails?.fullName || "Caller"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-emerald-200/70">
+                        +91 {qrCustomer}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="rounded-xl border border-zinc-800 bg-black px-3 py-2.5">
+                        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                          <Calendar className="h-3 w-3" />
+                          DOB
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-zinc-100">
+                          {callerDetails?.birthDate || "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-zinc-800 bg-black px-3 py-2.5">
+                        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                          <Clock className="h-3 w-3" />
+                          TOB
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-zinc-100">
+                          {callerDetails?.birthTime || "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-zinc-800 bg-black px-3 py-2.5 sm:col-span-1">
+                        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                          <MapPin className="h-3 w-3" />
+                          POB
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-zinc-100">
+                          {callerDetails?.birthPlace || "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 

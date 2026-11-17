@@ -27,8 +27,19 @@ const PANDIT_BY_MOBILE_PATH =
 const PANDIT_STATUS_PATH =
   import.meta.env.VITE_ASTRO_PANDIT_STATUS_URL || "/api/astro/pandit/status";
 const SHOW_QR_PATH = import.meta.env.VITE_ASTRO_SHOW_QR_URL || "/api/astro/show-qr";
+const GET_DATA_PATH =
+  import.meta.env.VITE_ASTRO_GET_DATA_URL || "/api/astro/getdata";
 const SESSION_KEY = "pandit_dashboard_mobile";
 const PROFILE_KEY = "pandit_dashboard_profile";
+
+/** Caller details shown when a call is connected */
+export type CustomerCallDetails = {
+  mobile: string;
+  fullName: string;
+  birthDate: string;
+  birthTime: string;
+  birthPlace: string;
+};
 
 function mapProfile(data: Record<string, unknown>, mobile: string): PanditProfile {
   const phone = normalizeMobile(String(data.phoneNumber || mobile));
@@ -146,6 +157,39 @@ export async function updatePanditStatus(
     const text = await response.text().catch(() => "");
     throw new Error(text || `Status update failed (${response.status})`);
   }
+}
+
+/** GET /api/astro/getdata?msisdn= — Name, DOB, TOB, POB for the connected caller. */
+export async function fetchCustomerDetails(
+  customerMobile: string,
+): Promise<CustomerCallDetails | null> {
+  const msisdn = normalizeMobile(customerMobile);
+  if (msisdn.length !== 10) return null;
+
+  const response = await fetch(
+    `${resolveApiUrl(GET_DATA_PATH)}?msisdn=${encodeURIComponent(msisdn)}`,
+    { method: "GET", headers: { Accept: "application/json" } },
+  );
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Could not load caller details (${response.status})`);
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+  const fullName = String(data.fullName || data.name || "").trim();
+  const birthDate = String(data.birthDate || data.dob || "").trim();
+  const birthTimeRaw = String(data.birthTime || data.tob || "").trim();
+  const birthTime = birthTimeRaw.replace(/^(\d{1,2}:\d{2}).*$/, "$1");
+  const birthPlace = String(data.birthPlace || data.pob || "").trim();
+
+  return {
+    mobile: normalizeMobile(String(data.phoneNumber || msisdn)),
+    fullName: fullName || "Caller",
+    birthDate: birthDate || "—",
+    birthTime: birthTime || "—",
+    birthPlace: birthPlace || "—",
+  };
 }
 
 /** GET /api/astro/show-qr?customer= — backend pushes the payment QR to that customer's screen. */
