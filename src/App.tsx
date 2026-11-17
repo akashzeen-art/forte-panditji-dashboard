@@ -908,45 +908,26 @@ export default function App() {
                           type="button"
                           disabled={disabled}
                           onClick={() => void handleSendPaymentLink(item)}
-                          className={`flex aspect-square flex-col justify-between rounded-2xl border bg-gradient-to-br from-zinc-900 to-black p-3 text-left shadow-inner transition ${
+                          className={`flex aspect-square flex-col justify-between rounded-2xl border bg-gradient-to-br from-zinc-900 to-black p-3.5 text-left shadow-inner transition ${
                             disabled
                               ? "cursor-not-allowed border-zinc-800 opacity-50"
                               : "border-zinc-700 hover:border-amber-400/50 hover:from-zinc-800 hover:to-zinc-950 active:scale-[0.98]"
                           }`}
                         >
-                          <div>
-                            <div className="mb-2 flex flex-wrap items-center gap-1">
-                              <span className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-400">
-                                {item.code}
-                              </span>
-                              <span
-                                className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                                  item.itemType === "PRODUCT"
-                                    ? "border border-sky-500/30 bg-sky-500/10 text-sky-300"
-                                    : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
-                                }`}
-                              >
-                                {item.itemType}
-                              </span>
-                            </div>
-                            <p className="line-clamp-3 text-sm font-semibold leading-snug text-white">
-                              {item.description}
-                            </p>
-                            <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-                              {item.category}
-                            </p>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <p className="text-base font-bold text-amber-300">
+                          <p className="line-clamp-4 text-sm font-semibold leading-snug text-white">
+                            {item.description}
+                          </p>
+                          <div className="mt-3 space-y-2">
+                            <p className="text-lg font-bold text-amber-300">
                               ₹{item.amount.toLocaleString("en-IN")}
                             </p>
-                            {busy ? (
-                              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-amber-300" />
-                            ) : (
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                                Send
-                              </span>
-                            )}
+                            <span className="inline-flex h-8 w-full items-center justify-center rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-xs font-bold text-black">
+                              {busy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Send"
+                              )}
+                            </span>
                           </div>
                         </button>
                       );
