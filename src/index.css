@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --sutra-ivory: #fff8f0;
+  --sutra-saffron: #c2410c;
+  --sutra-gold: #d97706;
+  --sutra-maroon: #7c2d12;
+  --sutra-teal: #0f766e;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -15,6 +23,28 @@ body,
 body {
   margin: 0;
   font-family: "DM Sans", system-ui, sans-serif;
-  background: #f8f5f0;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(251, 191, 36, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 0%, rgba(194, 65, 12, 0.08), transparent 50%),
+    linear-gradient(180deg, #fff8f0 0%, #faf3e8 45%, #f5ebe0 100%);
   color: #1c1917;
+  background-attachment: fixed;
+}
+
+.font-display {
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.sutra-card {
+  border: 1px solid rgba(120, 53, 15, 0.12);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 10px 30px -18px rgba(120, 53, 15, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.sutra-om {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  line-height: 1;
 }

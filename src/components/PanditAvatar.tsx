@@ -28,7 +28,7 @@ export default function PanditAvatar({ src, name, className = "" }: PanditAvatar
   if (!resolved || failed) {
     return (
       <div
-        className={`flex items-center justify-center bg-gradient-to-br from-amber-500/20 to-orange-900/30 font-bold text-amber-300 ${className}`}
+        className={`flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-200 font-display text-2xl font-bold text-amber-800 ${className}`}
         aria-label={name}
       >
         {initials(name)}
@@ -44,7 +44,7 @@ export default function PanditAvatar({ src, name, className = "" }: PanditAvatar
       decoding="async"
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
-      className={`bg-zinc-900 object-cover object-top ${className}`}
+      className={`bg-amber-50 object-cover object-top ${className}`}
     />
   );
 }

@@ -9,7 +9,6 @@ import {
   PhoneOff,
   ShieldCheck,
   Sparkles,
-  Star,
   UserRound,
   Wifi,
   WifiOff,
@@ -64,31 +63,31 @@ const STATUS_OPTIONS: {
   {
     id: "AVAILABLE",
     label: "Available",
-    hint: "Ready to take calls",
+    hint: "Ready for darshan calls",
     icon: Sparkles,
-    tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    tone: "border-teal-200/80 bg-teal-50/70 text-teal-900",
     active:
-      "border-emerald-500 bg-emerald-100 text-emerald-900 shadow-sm ring-2 ring-emerald-400/40",
+      "border-teal-500 bg-teal-100 text-teal-950 shadow-sm ring-2 ring-teal-400/35",
   },
   {
     id: "BUSY",
-    label: "Busy",
-    hint: "On a live consultation",
+    label: "On consultation",
+    hint: "Live with a seeker",
     icon: PhoneOff,
-    tone: "border-rose-200 bg-rose-50 text-rose-800",
+    tone: "border-rose-200/80 bg-rose-50/70 text-rose-900",
     active:
-      "border-rose-500 bg-rose-100 text-rose-900 shadow-sm ring-2 ring-rose-400/40",
+      "border-rose-500 bg-rose-100 text-rose-950 shadow-sm ring-2 ring-rose-400/35",
   },
 ];
 
 function StatusPill({ status }: { status: PanditApiStatus }) {
   const label = statusLabel(status);
   const styles: Record<string, string> = {
-    AVAILABLE: "border-emerald-300 bg-emerald-100 text-emerald-800",
+    AVAILABLE: "border-teal-300 bg-teal-50 text-teal-800",
     OFFLINE: "border-stone-300 bg-stone-100 text-stone-600",
-    BUSY: "border-rose-300 bg-rose-100 text-rose-800",
-    BREAK: "border-sky-300 bg-sky-100 text-sky-800",
-    AWAY: "border-sky-300 bg-sky-100 text-sky-800",
+    BUSY: "border-rose-300 bg-rose-50 text-rose-800",
+    BREAK: "border-sky-300 bg-sky-50 text-sky-800",
+    AWAY: "border-sky-300 bg-sky-50 text-sky-800",
   };
 
   return (
@@ -97,11 +96,31 @@ function StatusPill({ status }: { status: PanditApiStatus }) {
     >
       {label === "AVAILABLE" && (
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-70" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal-500" />
         </span>
       )}
       {label}
+    </div>
+  );
+}
+
+function SectionTitle({
+  eyebrow,
+  title,
+  hint,
+}: {
+  eyebrow: string;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="mb-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-800/70">
+        {eyebrow}
+      </p>
+      <h2 className="font-display text-xl font-bold text-stone-900">{title}</h2>
+      {hint ? <p className="mt-0.5 text-xs text-stone-500">{hint}</p> : null}
     </div>
   );
 }
@@ -488,30 +507,44 @@ export default function App() {
 
   if (booting) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f8f5f0]">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="sutra-om text-4xl text-amber-700">ॐ</span>
+          <Loader2 className="h-7 w-7 animate-spin text-amber-700" />
+          <p className="text-xs font-medium tracking-wide text-stone-500">
+            Opening Pandit Ji dashboard…
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f8f5f0] text-stone-900">
-      <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-amber-300/25 blur-[90px]" />
-        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-orange-200/30 blur-[100px]" />
+    <div className="relative min-h-screen overflow-hidden text-stone-900">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <div className="absolute left-1/2 top-0 h-px w-[70%] -translate-x-1/2 bg-gradient-to-r from-transparent via-amber-700/35 to-transparent" />
+        <div className="absolute -left-16 top-24 sutra-om select-none text-[7rem] text-amber-800/[0.06]">
+          ॐ
+        </div>
+        <div className="absolute -right-10 bottom-28 sutra-om select-none text-[6rem] text-orange-800/[0.05]">
+          ॐ
+        </div>
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-4 py-8 sm:px-6">
-        <div className="mb-10 flex items-center justify-between">
+      <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-4 py-7 sm:px-6">
+        {/* Brand header */}
+        <header className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300 bg-amber-100">
-              <Star className="h-5 w-5 text-amber-600" fill="currentColor" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-700/20 bg-gradient-to-br from-amber-100 to-orange-100 shadow-sm">
+              <span className="sutra-om text-2xl text-amber-800">ॐ</span>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-700">
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-800">
                 My Astro Sutra
               </p>
-              <p className="text-sm font-semibold text-stone-700">Pandit Ji Dashboard</p>
+              <p className="font-display text-lg font-bold leading-none text-stone-900">
+                Pandit Ji Mandir
+              </p>
             </div>
           </div>
 
@@ -519,35 +552,33 @@ export default function App() {
             <div
               className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
                 wsConnected
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                  : "border-stone-300 bg-white text-stone-500"
+                  ? "border-teal-300 bg-teal-50 text-teal-800"
+                  : "border-stone-300 bg-white/80 text-stone-500"
               }`}
             >
-              {wsConnected ? (
-                <Wifi className="h-3 w-3" />
-              ) : (
-                <WifiOff className="h-3 w-3" />
-              )}
-              {wsConnected ? "Synced" : "Syncing"}
+              {wsConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              {wsConnected ? "Live" : "Syncing"}
             </div>
           )}
-        </div>
+        </header>
 
         {view === "login" ? (
           <>
-            <header className="mb-8">
-              <h1 className="font-display text-3xl font-bold leading-tight text-stone-900">
-                Pandit Ji{" "}
-                <span className="bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">
-                  Login
+            <div className="mb-7 text-center">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-800/80">
+                Acharya Portal
+              </p>
+              <h1 className="font-display text-4xl font-bold leading-tight text-stone-900">
+                Namaste,{" "}
+                <span className="bg-gradient-to-r from-amber-700 to-orange-600 bg-clip-text text-transparent">
+                  Pandit Ji
                 </span>
               </h1>
-              <p className="mt-2 text-sm text-stone-600">
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-stone-600">
                 {loginStep === "mobile" ? (
                   <>
-                    Enter your registered mobile number to receive an OTP. On login your
-                    status becomes{" "}
-                    <span className="font-semibold text-emerald-700">AVAILABLE</span>.
+                    Enter your registered mobile. After OTP your status becomes{" "}
+                    <span className="font-semibold text-teal-700">AVAILABLE</span> for seekers.
                   </>
                 ) : (
                   <>
@@ -556,25 +587,21 @@ export default function App() {
                   </>
                 )}
               </p>
-            </header>
+            </div>
 
             {!firebaseReady && (
-              <p className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
-                OTP login is not configured yet. Add the Firebase keys to the dashboard&apos;s
-                environment file and restart.
+              <p className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-950">
+                OTP login is not configured yet. Add Firebase keys and restart.
               </p>
             )}
 
             {loginStep === "mobile" ? (
-              <form
-                onSubmit={handleSendOtp}
-                className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
-              >
+              <form onSubmit={handleSendOtp} className="sutra-card rounded-3xl p-5">
                 <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-stone-500">
                   Mobile number
                 </label>
                 <div className="mb-4 flex gap-2">
-                  <span className="flex h-12 items-center rounded-xl border border-stone-200 bg-stone-50 px-3.5 text-sm text-stone-600">
+                  <span className="flex h-12 items-center rounded-xl border border-amber-800/15 bg-amber-50/80 px-3.5 text-sm font-semibold text-amber-900">
                     +91
                   </span>
                   <input
@@ -586,7 +613,7 @@ export default function App() {
                       setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
                     }
                     placeholder="9876543210"
-                    className="h-12 flex-1 rounded-xl border border-stone-200 bg-white px-4 text-base text-stone-900 outline-none placeholder:text-stone-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                    className="h-12 flex-1 rounded-xl border border-amber-800/15 bg-white px-4 text-base text-stone-900 outline-none placeholder:text-stone-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
                   />
                 </div>
 
@@ -599,7 +626,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading || !firebaseReady || mobile.length !== 10}
-                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-white shadow-sm transition hover:brightness-105 disabled:opacity-40"
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-sm font-bold text-white shadow-md shadow-orange-700/20 transition hover:brightness-105 disabled:opacity-40"
                 >
                   {loading ? (
                     <>
@@ -617,7 +644,7 @@ export default function App() {
             ) : (
               <form
                 onSubmit={(e) => void handleVerifyOtp(e)}
-                className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+                className="sutra-card rounded-3xl p-5"
               >
                 <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-stone-500">
                   One-time password
@@ -632,7 +659,7 @@ export default function App() {
                     setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
                   }
                   placeholder="••••••"
-                  className="mb-4 h-12 w-full rounded-xl border border-stone-200 bg-white px-4 text-center text-xl font-semibold tracking-[0.5em] text-stone-900 outline-none placeholder:text-stone-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                  className="mb-4 h-12 w-full rounded-xl border border-amber-800/15 bg-white px-4 text-center text-xl font-semibold tracking-[0.5em] text-stone-900 outline-none placeholder:text-stone-300 focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
                 />
 
                 {error && (
@@ -644,7 +671,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== OTP_LENGTH}
-                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-sm font-bold text-white shadow-sm transition hover:brightness-105 disabled:opacity-40"
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-sm font-bold text-white shadow-md shadow-orange-700/20 transition hover:brightness-105 disabled:opacity-40"
                 >
                   {loading ? (
                     <>
@@ -673,7 +700,7 @@ export default function App() {
                     type="button"
                     onClick={() => void requestOtp()}
                     disabled={loading || resendIn > 0}
-                    className="font-semibold text-amber-700 transition hover:text-amber-800 disabled:text-stone-400"
+                    className="font-semibold text-amber-800 transition hover:text-amber-950 disabled:text-stone-400"
                   >
                     {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
                   </button>
@@ -682,52 +709,50 @@ export default function App() {
             )}
 
             <div id={RECAPTCHA_CONTAINER_ID} />
+            <p className="mt-8 text-center text-[11px] text-stone-500">
+              Guided consultations · Vedic wisdom · Live darshan
+            </p>
           </>
         ) : (
           profile && (
-            <div className="flex flex-1 flex-col">
-              <header className="mb-6">
-                <h1 className="font-display text-2xl font-bold text-stone-900">
-                  Welcome, {profile.fullName.split(" ")[0]}
-                </h1>
-                <p className="mt-1 text-sm text-stone-600">{profile.title}</p>
-              </header>
-
-              <div className="mb-5 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+            <div className="flex flex-1 flex-col pb-4">
+              {/* Profile hero */}
+              <section className="sutra-card mb-5 overflow-hidden rounded-3xl">
+                <div className="border-b border-amber-800/10 bg-gradient-to-r from-amber-100/80 via-orange-50 to-transparent px-5 py-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-800/80">
+                    Your seat
+                  </p>
+                  <h1 className="font-display text-2xl font-bold text-stone-900">
+                    Namaste, {profile.fullName.split(" ")[0]}
+                  </h1>
+                  <p className="text-sm text-stone-600">{profile.title}</p>
+                </div>
                 <div className="flex items-center gap-4 p-5">
                   <PanditAvatar
                     src={profile.imageUrl}
                     name={profile.fullName}
-                    className="h-24 w-24 shrink-0 rounded-2xl border-2 border-amber-300 text-2xl shadow-sm"
+                    className="h-20 w-20 shrink-0 rounded-2xl border-2 border-amber-300 text-xl shadow-md shadow-amber-800/10"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-stone-900">{profile.fullName}</p>
                     <p className="truncate text-xs text-stone-500">{profile.specialty}</p>
-                    <p className="mt-1 text-xs capitalize text-stone-500">{profile.gender}</p>
+                    <div className="mt-2">
+                      <StatusPill status={profile.status} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div className="mb-4 rounded-2xl border border-stone-200 bg-white p-5 text-center shadow-sm">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-stone-500">
-                  Current status
-                </p>
-                <StatusPill status={profile.status} />
-              </div>
-
-              <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Set status
-                    </p>
-                    <p className="mt-0.5 text-xs text-stone-500">
-                      Tap to update — seekers see this live
-                    </p>
-                  </div>
-                  {saving && <Loader2 className="h-4 w-4 animate-spin text-amber-600" />}
+              {/* Status */}
+              <section className="sutra-card mb-5 rounded-3xl p-4">
+                <SectionTitle
+                  eyebrow="Seva status"
+                  title="Are you available?"
+                  hint="Seekers see this live on the talk portal"
+                />
+                <div className="mb-1 flex justify-end">
+                  {saving && <Loader2 className="h-4 w-4 animate-spin text-amber-700" />}
                 </div>
-
                 <div className="grid gap-2">
                   {STATUS_OPTIONS.map((opt) => {
                     const Icon = opt.icon;
@@ -738,14 +763,14 @@ export default function App() {
                         type="button"
                         disabled={saving || loading}
                         onClick={() => void handleStatusChange(opt.id)}
-                        className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
+                        className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition ${
                           active ? opt.active : opt.tone
-                        } ${!active ? "hover:border-stone-300 hover:bg-stone-50" : ""} disabled:opacity-60`}
+                        } ${!active ? "hover:border-amber-300 hover:bg-amber-50/50" : ""} disabled:opacity-60`}
                       >
                         <span
-                          className={`flex h-10 w-10 items-center justify-center rounded-lg border ${
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
                             active
-                              ? "border-current/20 bg-white/70"
+                              ? "border-current/20 bg-white/80"
                               : "border-stone-200 bg-white"
                           }`}
                         >
@@ -756,7 +781,7 @@ export default function App() {
                           <p className="text-[11px] opacity-70">{opt.hint}</p>
                         </div>
                         {active && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-white">
                             <Check className="h-3 w-3 stroke-[3]" />
                           </span>
                         )}
@@ -764,124 +789,100 @@ export default function App() {
                     );
                   })}
                 </div>
-
                 {success && (
-                  <p className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800">
+                  <p className="mt-3 flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-sm text-teal-900">
                     <Check className="h-4 w-4 shrink-0" />
                     {success}
                   </p>
                 )}
-              </div>
+              </section>
 
-              <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-600">
+              {/* Caller */}
+              <section className="sutra-card mb-5 rounded-3xl p-4">
+                <div className="mb-3 flex items-start gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-700">
                     <UserRound className="h-4 w-4" />
                   </span>
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Caller details
-                    </p>
-                    <p className="mt-0.5 text-xs text-stone-500">
-                      Shown when the customer call is connected
-                    </p>
-                  </div>
+                  <SectionTitle
+                    eyebrow="Live call"
+                    title="Seeker details"
+                    hint="Shown when the consultation connects"
+                  />
                 </div>
 
                 {qrCustomer.length !== 10 ? (
-                  <p className="rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-3 text-sm text-stone-500">
-                    Waiting for a connected call…
+                  <p className="rounded-2xl border border-dashed border-amber-800/20 bg-amber-50/50 px-3.5 py-4 text-center text-sm text-stone-500">
+                    Waiting for a seeker to connect…
                   </p>
                 ) : callerLoading ? (
-                  <p className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-3 text-sm text-stone-600">
+                  <p className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-3.5 py-4 text-sm text-stone-600">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading caller profile…
+                    Loading kundli profile…
                   </p>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-stone-200">
+                  <div className="overflow-hidden rounded-2xl border border-amber-800/15">
                     <table className="w-full text-left text-sm">
-                      <tbody className="divide-y divide-stone-200">
-                        <tr className="bg-white">
-                          <th className="w-[42%] whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                            Name
-                          </th>
-                          <td className="px-3.5 py-2.5 font-semibold text-stone-900">
-                            {callerDetails?.fullName || "Caller"}
-                          </td>
-                        </tr>
-                        <tr className="bg-white">
-                          <th className="whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                            Date of Birth
-                          </th>
-                          <td className="px-3.5 py-2.5 font-medium text-stone-800">
-                            {callerDetails?.birthDate || "—"}
-                          </td>
-                        </tr>
-                        <tr className="bg-white">
-                          <th className="whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                            Time of Birth
-                          </th>
-                          <td className="px-3.5 py-2.5 font-medium text-stone-800">
-                            {callerDetails?.birthTime || "—"}
-                          </td>
-                        </tr>
-                        <tr className="bg-white">
-                          <th className="whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                            Place of Birth
-                          </th>
-                          <td className="px-3.5 py-2.5 font-medium text-stone-800">
-                            {callerDetails?.birthPlace || "—"}
-                          </td>
-                        </tr>
+                      <tbody className="divide-y divide-amber-800/10">
+                        {[
+                          ["Name", callerDetails?.fullName || "Caller"],
+                          ["Date of Birth", callerDetails?.birthDate || "—"],
+                          ["Time of Birth", callerDetails?.birthTime || "—"],
+                          ["Place of Birth", callerDetails?.birthPlace || "—"],
+                        ].map(([label, value]) => (
+                          <tr key={label} className="bg-white/90">
+                            <th className="w-[42%] whitespace-nowrap bg-amber-50/70 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-amber-900/70">
+                              {label}
+                            </th>
+                            <td className="px-3.5 py-2.5 font-semibold text-stone-900">{value}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
                 )}
-              </div>
+              </section>
 
-              <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-600">
+              {/* Catalog */}
+              <section className="sutra-card mb-5 rounded-3xl p-4">
+                <div className="mb-3 flex items-start gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 text-amber-800">
                     <Sparkles className="h-4 w-4" />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Consultation items
-                    </p>
-                    <p className="mt-0.5 text-xs text-stone-500">
-                      Tap Send to push a payment link to the caller
-                    </p>
-                  </div>
+                  <SectionTitle
+                    eyebrow="Dakshina & seva"
+                    title="Consultation items"
+                    hint="Tap Send to share a payment link with the seeker"
+                  />
                 </div>
 
                 <div
-                  className={`mb-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                  className={`mb-3 flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold ${
                     qrCustomer.length === 10
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                      ? "border-teal-300 bg-teal-50 text-teal-900"
                       : "border-stone-200 bg-stone-50 text-stone-500"
                   }`}
                 >
                   <span
                     className={`h-2 w-2 shrink-0 rounded-full ${
-                      qrCustomer.length === 10 ? "animate-pulse bg-emerald-500" : "bg-stone-400"
+                      qrCustomer.length === 10 ? "animate-pulse bg-teal-500" : "bg-stone-400"
                     }`}
                   />
                   {qrCustomer.length === 10
-                    ? "Customer connected — tap Send on an item"
-                    : "Waiting for a call to connect"}
+                    ? "Seeker connected — choose an item to send"
+                    : "Connect a call to enable Send"}
                 </div>
 
                 {catalogLoading ? (
-                  <p className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-3 text-sm text-stone-600">
+                  <p className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3.5 py-3 text-sm text-stone-600">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Loading items…
                   </p>
                 ) : catalogError ? (
-                  <p className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+                  <p className="rounded-2xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
                     {catalogError}
                   </p>
                 ) : poojaCatalog.length === 0 ? (
-                  <p className="rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-3 text-sm text-stone-500">
+                  <p className="rounded-2xl border border-stone-200 bg-stone-50 px-3.5 py-3 text-sm text-stone-500">
                     No consultation items available.
                   </p>
                 ) : (
@@ -899,17 +900,17 @@ export default function App() {
                       return (
                         <div
                           key={item.id}
-                          className={`flex aspect-square flex-col rounded-2xl border p-3 shadow-sm ${
+                          className={`flex aspect-square flex-col rounded-2xl border p-3 ${
                             alreadySent
-                              ? "border-stone-200 bg-stone-100 opacity-70"
-                              : "border-stone-200 bg-gradient-to-br from-white to-amber-50/60"
+                              ? "border-stone-200 bg-stone-100/90 opacity-70"
+                              : "border-amber-800/15 bg-gradient-to-br from-white to-amber-50 shadow-sm"
                           }`}
                         >
                           <p className="line-clamp-3 min-h-[3.75rem] text-sm font-semibold leading-snug text-stone-900">
                             {item.description}
                           </p>
                           <div className="mt-auto flex shrink-0 flex-col gap-2 pt-2">
-                            <p className="text-base font-bold tabular-nums text-amber-700 sm:text-lg">
+                            <p className="text-base font-bold tabular-nums text-amber-800 sm:text-lg">
                               ₹{item.amount.toLocaleString("en-IN")}
                             </p>
                             <button
@@ -921,7 +922,7 @@ export default function App() {
                                   ? "cursor-not-allowed bg-stone-300 text-stone-600"
                                   : disabled && !busy
                                     ? "cursor-not-allowed bg-stone-200 text-stone-500"
-                                    : "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm hover:brightness-105 active:scale-[0.98]"
+                                    : "bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm hover:brightness-105 active:scale-[0.98]"
                               }`}
                             >
                               {busy ? (
@@ -943,7 +944,7 @@ export default function App() {
                   <p
                     className={`mt-3 flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm ${
                       paymentLinkResult.ok
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        ? "border-teal-200 bg-teal-50 text-teal-900"
                         : "border-red-200 bg-red-50 text-red-700"
                     }`}
                   >
@@ -951,20 +952,20 @@ export default function App() {
                     {paymentLinkResult.text}
                   </p>
                 )}
-              </div>
+              </section>
 
               {error && (
-                <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+                <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
                   {error}
                 </p>
               )}
 
-              <div className="mt-auto pt-4">
+              <div className="mt-auto pt-2">
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
                   disabled={loading}
-                  className="flex h-12 w-full items-center justify-center rounded-xl border border-stone-300 bg-white text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-stone-50 disabled:opacity-50"
+                  className="flex h-12 w-full items-center justify-center rounded-2xl border border-amber-800/20 bg-white text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-amber-50 disabled:opacity-50"
                 >
                   {loading ? (
                     <>
