@@ -885,7 +885,7 @@ export default function App() {
                     No consultation items available.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {poojaCatalog.map((item) => {
                       const busy = sendingItemId === item.id;
                       const alreadySent = sentItemIds.includes(item.id);
@@ -899,24 +899,24 @@ export default function App() {
                       return (
                         <div
                           key={item.id}
-                          className={`flex aspect-square flex-col justify-between rounded-2xl border p-3.5 shadow-sm ${
+                          className={`flex aspect-square flex-col rounded-2xl border p-3 shadow-sm ${
                             alreadySent
                               ? "border-stone-200 bg-stone-100 opacity-70"
                               : "border-stone-200 bg-gradient-to-br from-white to-amber-50/60"
                           }`}
                         >
-                          <p className="line-clamp-4 text-sm font-semibold leading-snug text-stone-900">
+                          <p className="line-clamp-3 min-h-[3.75rem] text-sm font-semibold leading-snug text-stone-900">
                             {item.description}
                           </p>
-                          <div className="mt-3 space-y-2">
-                            <p className="text-lg font-bold text-amber-700">
+                          <div className="mt-auto flex shrink-0 flex-col gap-2 pt-2">
+                            <p className="text-base font-bold tabular-nums text-amber-700 sm:text-lg">
                               ₹{item.amount.toLocaleString("en-IN")}
                             </p>
                             <button
                               type="button"
                               disabled={disabled && !busy}
                               onClick={() => void handleSendPaymentLink(item)}
-                              className={`inline-flex h-9 w-full items-center justify-center rounded-lg text-xs font-bold transition ${
+                              className={`inline-flex h-9 w-full shrink-0 items-center justify-center rounded-lg text-xs font-bold transition ${
                                 alreadySent
                                   ? "cursor-not-allowed bg-stone-300 text-stone-600"
                                   : disabled && !busy
