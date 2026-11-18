@@ -2,12 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConfirmationResult } from "firebase/auth";
 import {
   ArrowLeft,
-  Calendar,
   Check,
-  Clock,
   Loader2,
   LogOut,
-  MapPin,
   MessageSquare,
   PhoneOff,
   ShieldCheck,
@@ -762,44 +759,43 @@ export default function App() {
                     Loading caller profile…
                   </p>
                 ) : (
-                  <div className="space-y-2.5">
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                        Name
-                      </p>
-                      <p className="mt-0.5 text-base font-semibold text-stone-900">
-                        {callerDetails?.fullName || "Caller"}
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
-                        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                          <Calendar className="h-3 w-3" />
-                          DOB
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-stone-800">
-                          {callerDetails?.birthDate || "—"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
-                        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                          <Clock className="h-3 w-3" />
-                          TOB
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-stone-800">
-                          {callerDetails?.birthTime || "—"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
-                        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                          <MapPin className="h-3 w-3" />
-                          POB
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-stone-800">
-                          {callerDetails?.birthPlace || "—"}
-                        </p>
-                      </div>
-                    </div>
+                  <div className="overflow-hidden rounded-xl border border-stone-200">
+                    <table className="w-full text-left text-sm">
+                      <tbody className="divide-y divide-stone-200">
+                        <tr className="bg-white">
+                          <th className="w-[42%] whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                            Name
+                          </th>
+                          <td className="px-3.5 py-2.5 font-semibold text-stone-900">
+                            {callerDetails?.fullName || "Caller"}
+                          </td>
+                        </tr>
+                        <tr className="bg-white">
+                          <th className="whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                            Date of Birth
+                          </th>
+                          <td className="px-3.5 py-2.5 font-medium text-stone-800">
+                            {callerDetails?.birthDate || "—"}
+                          </td>
+                        </tr>
+                        <tr className="bg-white">
+                          <th className="whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                            Time of Birth
+                          </th>
+                          <td className="px-3.5 py-2.5 font-medium text-stone-800">
+                            {callerDetails?.birthTime || "—"}
+                          </td>
+                        </tr>
+                        <tr className="bg-white">
+                          <th className="whitespace-nowrap bg-stone-50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                            Place of Birth
+                          </th>
+                          <td className="px-3.5 py-2.5 font-medium text-stone-800">
+                            {callerDetails?.birthPlace || "—"}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
