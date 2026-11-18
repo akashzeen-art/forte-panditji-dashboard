@@ -65,29 +65,29 @@ const STATUS_OPTIONS: {
     label: "Available",
     hint: "Ready for darshan calls",
     icon: Sparkles,
-    tone: "border-teal-200/80 bg-teal-50/70 text-teal-900",
+    tone: "border-[#e8d9c8] bg-[#fbf6ee] text-stone-700",
     active:
-      "border-teal-500 bg-teal-100 text-teal-950 shadow-sm ring-2 ring-teal-400/35",
+      "border-green-600 bg-green-50 text-green-900 shadow-sm ring-2 ring-green-500/25",
   },
   {
     id: "BUSY",
     label: "On consultation",
     hint: "Live with a seeker",
     icon: PhoneOff,
-    tone: "border-rose-200/80 bg-rose-50/70 text-rose-900",
+    tone: "border-[#e8d9c8] bg-[#fbf6ee] text-stone-700",
     active:
-      "border-rose-500 bg-rose-100 text-rose-950 shadow-sm ring-2 ring-rose-400/35",
+      "border-red-600 bg-red-50 text-red-900 shadow-sm ring-2 ring-red-500/25",
   },
 ];
 
 function StatusPill({ status }: { status: PanditApiStatus }) {
   const label = statusLabel(status);
   const styles: Record<string, string> = {
-    AVAILABLE: "border-teal-300 bg-teal-50 text-teal-800",
+    AVAILABLE: "border-green-300 bg-green-50 text-green-800",
     OFFLINE: "border-stone-300 bg-stone-100 text-stone-600",
-    BUSY: "border-rose-300 bg-rose-50 text-rose-800",
-    BREAK: "border-sky-300 bg-sky-50 text-sky-800",
-    AWAY: "border-sky-300 bg-sky-50 text-sky-800",
+    BUSY: "border-red-300 bg-red-50 text-red-800",
+    BREAK: "border-stone-300 bg-stone-50 text-stone-700",
+    AWAY: "border-stone-300 bg-stone-50 text-stone-700",
   };
 
   return (
@@ -96,8 +96,8 @@ function StatusPill({ status }: { status: PanditApiStatus }) {
     >
       {label === "AVAILABLE" && (
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-70" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal-500" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-600 opacity-70" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-600" />
         </span>
       )}
       {label}
@@ -116,10 +116,8 @@ function SectionTitle({
 }) {
   return (
     <div className="mb-3">
-      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-800/70">
-        {eyebrow}
-      </p>
-      <h2 className="font-display text-xl font-bold text-stone-900">{title}</h2>
+      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9a3412]">{eyebrow}</p>
+      <h2 className="font-display text-xl font-bold text-stone-800">{title}</h2>
       {hint ? <p className="mt-0.5 text-xs text-stone-500">{hint}</p> : null}
     </div>
   );
@@ -509,8 +507,8 @@ export default function App() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <span className="sutra-om text-4xl text-amber-700">ॐ</span>
-          <Loader2 className="h-7 w-7 animate-spin text-amber-700" />
+          <span className="sutra-om text-4xl text-[#c2410c]">ॐ</span>
+          <Loader2 className="h-7 w-7 animate-spin text-[#c2410c]" />
           <p className="text-xs font-medium tracking-wide text-stone-500">
             Opening Pandit Ji dashboard…
           </p>
@@ -522,11 +520,11 @@ export default function App() {
   return (
     <div className="relative min-h-screen overflow-hidden text-stone-900">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-        <div className="absolute left-1/2 top-0 h-px w-[70%] -translate-x-1/2 bg-gradient-to-r from-transparent via-amber-700/35 to-transparent" />
-        <div className="absolute -left-16 top-24 sutra-om select-none text-[7rem] text-amber-800/[0.06]">
+        <div className="absolute left-1/2 top-0 h-px w-[70%] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#c2410c]/30 to-transparent" />
+        <div className="absolute -left-16 top-24 sutra-om select-none text-[7rem] text-[#9a3412]/[0.06]">
           ॐ
         </div>
-        <div className="absolute -right-10 bottom-28 sutra-om select-none text-[6rem] text-orange-800/[0.05]">
+        <div className="absolute -right-10 bottom-28 sutra-om select-none text-[6rem] text-[#c2410c]/[0.05]">
           ॐ
         </div>
       </div>
@@ -535,11 +533,11 @@ export default function App() {
         {/* Brand header */}
         <header className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-700/20 bg-gradient-to-br from-amber-100 to-orange-100 shadow-sm">
-              <span className="sutra-om text-2xl text-amber-800">ॐ</span>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e8d9c8] bg-gradient-to-br from-[#fff7ed] to-[#ffedd5] shadow-sm">
+              <span className="sutra-om text-2xl text-[#9a3412]">ॐ</span>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-800">
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#9a3412]">
                 My Astro Sutra
               </p>
               <p className="font-display text-lg font-bold leading-none text-stone-900">
@@ -552,7 +550,7 @@ export default function App() {
             <div
               className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
                 wsConnected
-                  ? "border-teal-300 bg-teal-50 text-teal-800"
+                  ? "border-green-300 bg-green-50 text-green-800"
                   : "border-stone-300 bg-white/80 text-stone-500"
               }`}
             >
@@ -565,12 +563,12 @@ export default function App() {
         {view === "login" ? (
           <>
             <div className="mb-7 text-center">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-800/80">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#9a3412]">
                 Acharya Portal
               </p>
               <h1 className="font-display text-4xl font-bold leading-tight text-stone-900">
                 Namaste,{" "}
-                <span className="bg-gradient-to-r from-amber-700 to-orange-600 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#9a3412] to-[#c2410c] bg-clip-text text-transparent">
                   Pandit Ji
                 </span>
               </h1>
@@ -578,7 +576,7 @@ export default function App() {
                 {loginStep === "mobile" ? (
                   <>
                     Enter your registered mobile. After OTP your status becomes{" "}
-                    <span className="font-semibold text-teal-700">AVAILABLE</span> for seekers.
+                    <span className="font-semibold text-green-700">AVAILABLE</span> for seekers.
                   </>
                 ) : (
                   <>
@@ -590,7 +588,7 @@ export default function App() {
             </div>
 
             {!firebaseReady && (
-              <p className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-950">
+              <p className="mb-4 rounded-2xl border border-[#e8d9c8] bg-[#fff7ed] px-3.5 py-2.5 text-sm text-[#7c2d12]">
                 OTP login is not configured yet. Add Firebase keys and restart.
               </p>
             )}
@@ -601,7 +599,7 @@ export default function App() {
                   Mobile number
                 </label>
                 <div className="mb-4 flex gap-2">
-                  <span className="flex h-12 items-center rounded-xl border border-amber-800/15 bg-amber-50/80 px-3.5 text-sm font-semibold text-amber-900">
+                  <span className="flex h-12 items-center rounded-xl border border-[#e8d9c8] bg-[#fff7ed] px-3.5 text-sm font-semibold text-[#9a3412]">
                     +91
                   </span>
                   <input
@@ -613,7 +611,7 @@ export default function App() {
                       setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
                     }
                     placeholder="9876543210"
-                    className="h-12 flex-1 rounded-xl border border-amber-800/15 bg-white px-4 text-base text-stone-900 outline-none placeholder:text-stone-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                    className="h-12 flex-1 rounded-xl border border-[#e8d9c8] bg-white px-4 text-base text-stone-900 outline-none placeholder:text-stone-400 focus:border-[#c2410c] focus:ring-2 focus:ring-[#fdba74]/50"
                   />
                 </div>
 
@@ -626,7 +624,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading || !firebaseReady || mobile.length !== 10}
-                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-sm font-bold text-white shadow-md shadow-orange-700/20 transition hover:brightness-105 disabled:opacity-40"
+                  className="sutra-btn flex h-12 w-full items-center justify-center rounded-xl text-sm font-bold transition"
                 >
                   {loading ? (
                     <>
@@ -659,7 +657,7 @@ export default function App() {
                     setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
                   }
                   placeholder="••••••"
-                  className="mb-4 h-12 w-full rounded-xl border border-amber-800/15 bg-white px-4 text-center text-xl font-semibold tracking-[0.5em] text-stone-900 outline-none placeholder:text-stone-300 focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  className="mb-4 h-12 w-full rounded-xl border border-[#e8d9c8] bg-white px-4 text-center text-xl font-semibold tracking-[0.5em] text-stone-900 outline-none placeholder:text-stone-300 focus:border-[#c2410c] focus:ring-2 focus:ring-[#fdba74]/50"
                 />
 
                 {error && (
@@ -671,7 +669,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== OTP_LENGTH}
-                  className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-sm font-bold text-white shadow-md shadow-orange-700/20 transition hover:brightness-105 disabled:opacity-40"
+                  className="sutra-btn flex h-12 w-full items-center justify-center rounded-xl text-sm font-bold transition"
                 >
                   {loading ? (
                     <>
@@ -700,7 +698,7 @@ export default function App() {
                     type="button"
                     onClick={() => void requestOtp()}
                     disabled={loading || resendIn > 0}
-                    className="font-semibold text-amber-800 transition hover:text-amber-950 disabled:text-stone-400"
+                    className="font-semibold text-[#9a3412] transition hover:text-[#7c2d12] disabled:text-stone-400"
                   >
                     {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
                   </button>
@@ -718,8 +716,8 @@ export default function App() {
             <div className="flex flex-1 flex-col pb-4">
               {/* Profile hero */}
               <section className="sutra-card mb-5 overflow-hidden rounded-3xl">
-                <div className="border-b border-amber-800/10 bg-gradient-to-r from-amber-100/80 via-orange-50 to-transparent px-5 py-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-800/80">
+                <div className="border-b border-[#e8d9c8] bg-gradient-to-r from-[#fff7ed] via-[#fff7ed]/70 to-transparent px-5 py-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9a3412]">
                     Your seat
                   </p>
                   <h1 className="font-display text-2xl font-bold text-stone-900">
@@ -731,7 +729,7 @@ export default function App() {
                   <PanditAvatar
                     src={profile.imageUrl}
                     name={profile.fullName}
-                    className="h-20 w-20 shrink-0 rounded-2xl border-2 border-amber-300 text-xl shadow-md shadow-amber-800/10"
+                    className="h-20 w-20 shrink-0 rounded-2xl border-2 border-[#e8d9c8] text-xl shadow-md shadow-[#9a3412]/10"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-stone-900">{profile.fullName}</p>
@@ -751,7 +749,7 @@ export default function App() {
                   hint="Seekers see this live on the talk portal"
                 />
                 <div className="mb-1 flex justify-end">
-                  {saving && <Loader2 className="h-4 w-4 animate-spin text-amber-700" />}
+                  {saving && <Loader2 className="h-4 w-4 animate-spin text-[#c2410c]" />}
                 </div>
                 <div className="grid gap-2">
                   {STATUS_OPTIONS.map((opt) => {
@@ -765,7 +763,7 @@ export default function App() {
                         onClick={() => void handleStatusChange(opt.id)}
                         className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition ${
                           active ? opt.active : opt.tone
-                        } ${!active ? "hover:border-amber-300 hover:bg-amber-50/50" : ""} disabled:opacity-60`}
+                        } ${!active ? "hover:border-[#e8d9c8] hover:bg-[#fff7ed]/80" : ""} disabled:opacity-60`}
                       >
                         <span
                           className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
@@ -781,7 +779,7 @@ export default function App() {
                           <p className="text-[11px] opacity-70">{opt.hint}</p>
                         </div>
                         {active && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-white">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-700 text-white">
                             <Check className="h-3 w-3 stroke-[3]" />
                           </span>
                         )}
@@ -790,7 +788,7 @@ export default function App() {
                   })}
                 </div>
                 {success && (
-                  <p className="mt-3 flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-sm text-teal-900">
+                  <p className="mt-3 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5 text-sm text-green-900">
                     <Check className="h-4 w-4 shrink-0" />
                     {success}
                   </p>
@@ -800,7 +798,7 @@ export default function App() {
               {/* Caller */}
               <section className="sutra-card mb-5 rounded-3xl p-4">
                 <div className="mb-3 flex items-start gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-700">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-green-200 bg-green-50 text-green-800">
                     <UserRound className="h-4 w-4" />
                   </span>
                   <SectionTitle
@@ -811,7 +809,7 @@ export default function App() {
                 </div>
 
                 {qrCustomer.length !== 10 ? (
-                  <p className="rounded-2xl border border-dashed border-amber-800/20 bg-amber-50/50 px-3.5 py-4 text-center text-sm text-stone-500">
+                  <p className="rounded-2xl border border-dashed border-[#e8d9c8] bg-[#fff7ed]/80 px-3.5 py-4 text-center text-sm text-stone-500">
                     Waiting for a seeker to connect…
                   </p>
                 ) : callerLoading ? (
@@ -820,9 +818,9 @@ export default function App() {
                     Loading kundli profile…
                   </p>
                 ) : (
-                  <div className="overflow-hidden rounded-2xl border border-amber-800/15">
+                  <div className="overflow-hidden rounded-2xl border border-[#e8d9c8]">
                     <table className="w-full text-left text-sm">
-                      <tbody className="divide-y divide-amber-800/10">
+                      <tbody className="divide-y divide-[#e8d9c8]">
                         {[
                           ["Name", callerDetails?.fullName || "Caller"],
                           ["Date of Birth", callerDetails?.birthDate || "—"],
@@ -830,7 +828,7 @@ export default function App() {
                           ["Place of Birth", callerDetails?.birthPlace || "—"],
                         ].map(([label, value]) => (
                           <tr key={label} className="bg-white/90">
-                            <th className="w-[42%] whitespace-nowrap bg-amber-50/70 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-amber-900/70">
+                            <th className="w-[42%] whitespace-nowrap bg-[#fff7ed] px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#9a3412]/80">
                               {label}
                             </th>
                             <td className="px-3.5 py-2.5 font-semibold text-stone-900">{value}</td>
@@ -845,7 +843,7 @@ export default function App() {
               {/* Catalog */}
               <section className="sutra-card mb-5 rounded-3xl p-4">
                 <div className="mb-3 flex items-start gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 text-amber-800">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e8d9c8] bg-[#fff7ed] text-[#9a3412]">
                     <Sparkles className="h-4 w-4" />
                   </span>
                   <SectionTitle
@@ -858,13 +856,13 @@ export default function App() {
                 <div
                   className={`mb-3 flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold ${
                     qrCustomer.length === 10
-                      ? "border-teal-300 bg-teal-50 text-teal-900"
+                      ? "border-green-300 bg-green-50 text-green-900"
                       : "border-stone-200 bg-stone-50 text-stone-500"
                   }`}
                 >
                   <span
                     className={`h-2 w-2 shrink-0 rounded-full ${
-                      qrCustomer.length === 10 ? "animate-pulse bg-teal-500" : "bg-stone-400"
+                      qrCustomer.length === 10 ? "animate-pulse bg-green-600" : "bg-stone-400"
                     }`}
                   />
                   {qrCustomer.length === 10
@@ -903,14 +901,14 @@ export default function App() {
                           className={`flex aspect-square flex-col rounded-2xl border p-3 ${
                             alreadySent
                               ? "border-stone-200 bg-stone-100/90 opacity-70"
-                              : "border-amber-800/15 bg-gradient-to-br from-white to-amber-50 shadow-sm"
+                              : "border-[#e8d9c8] bg-gradient-to-br from-white to-[#fff7ed] shadow-sm"
                           }`}
                         >
                           <p className="line-clamp-3 min-h-[3.75rem] text-sm font-semibold leading-snug text-stone-900">
                             {item.description}
                           </p>
                           <div className="mt-auto flex shrink-0 flex-col gap-2 pt-2">
-                            <p className="text-base font-bold tabular-nums text-amber-800 sm:text-lg">
+                            <p className="text-base font-bold tabular-nums text-[#9a3412] sm:text-lg">
                               ₹{item.amount.toLocaleString("en-IN")}
                             </p>
                             <button
@@ -922,7 +920,7 @@ export default function App() {
                                   ? "cursor-not-allowed bg-stone-300 text-stone-600"
                                   : disabled && !busy
                                     ? "cursor-not-allowed bg-stone-200 text-stone-500"
-                                    : "bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm hover:brightness-105 active:scale-[0.98]"
+                                    : "sutra-btn active:scale-[0.98]"
                               }`}
                             >
                               {busy ? (
@@ -944,7 +942,7 @@ export default function App() {
                   <p
                     className={`mt-3 flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm ${
                       paymentLinkResult.ok
-                        ? "border-teal-200 bg-teal-50 text-teal-900"
+                        ? "border-green-200 bg-green-50 text-green-900"
                         : "border-red-200 bg-red-50 text-red-700"
                     }`}
                   >
@@ -965,7 +963,7 @@ export default function App() {
                   type="button"
                   onClick={() => void handleLogout()}
                   disabled={loading}
-                  className="flex h-12 w-full items-center justify-center rounded-2xl border border-amber-800/20 bg-white text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-amber-50 disabled:opacity-50"
+                  className="flex h-12 w-full items-center justify-center rounded-2xl border border-[#e8d9c8] bg-white text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-[#fff7ed] disabled:opacity-50"
                 >
                   {loading ? (
                     <>

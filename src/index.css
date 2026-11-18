@@ -2,12 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Pandit Ji palette (light)
+ * Ivory surface · Saffron brand · Forest available · Deep busy
+ */
 :root {
-  --sutra-ivory: #fff8f0;
-  --sutra-saffron: #c2410c;
-  --sutra-gold: #d97706;
-  --sutra-maroon: #7c2d12;
-  --sutra-teal: #0f766e;
+  --bg: #fbf6ee;
+  --bg-deep: #f3ebe0;
+  --card: #ffffff;
+  --ink: #292524;
+  --ink-soft: #57534e;
+  --ink-mute: #78716c;
+  --line: #e8d9c8;
+  --saffron: #c2410c;
+  --saffron-deep: #9a3412;
+  --saffron-soft: #fff7ed;
+  --gold: #b45309;
+  --available: #166534;
+  --available-soft: #f0fdf4;
+  --busy: #b91c1c;
+  --busy-soft: #fef2f2;
 }
 
 * {
@@ -23,11 +37,11 @@ body,
 body {
   margin: 0;
   font-family: "DM Sans", system-ui, sans-serif;
+  color: var(--ink);
   background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(251, 191, 36, 0.22), transparent 55%),
-    radial-gradient(ellipse 70% 45% at 100% 0%, rgba(194, 65, 12, 0.08), transparent 50%),
-    linear-gradient(180deg, #fff8f0 0%, #faf3e8 45%, #f5ebe0 100%);
-  color: #1c1917;
+    radial-gradient(ellipse 90% 55% at 0% 0%, rgba(194, 65, 12, 0.08), transparent 55%),
+    radial-gradient(ellipse 70% 40% at 100% 5%, rgba(180, 83, 9, 0.07), transparent 50%),
+    linear-gradient(180deg, #fbf6ee 0%, #f7f0e6 55%, #f3ebe0 100%);
   background-attachment: fixed;
 }
 
@@ -36,15 +50,30 @@ body {
 }
 
 .sutra-card {
-  border: 1px solid rgba(120, 53, 15, 0.12);
-  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--line);
+  background: var(--card);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 10px 30px -18px rgba(120, 53, 15, 0.28);
-  backdrop-filter: blur(8px);
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 24px -16px rgba(120, 53, 15, 0.22);
 }
 
 .sutra-om {
   font-family: "Cormorant Garamond", Georgia, serif;
   line-height: 1;
+}
+
+.sutra-btn {
+  background: linear-gradient(135deg, #c2410c 0%, #ea580c 100%);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px rgba(194, 65, 12, 0.55);
+}
+
+.sutra-btn:hover {
+  filter: brightness(1.04);
+}
+
+.sutra-btn:disabled {
+  opacity: 0.4;
+  filter: none;
+  box-shadow: none;
 }
