@@ -88,15 +88,25 @@ function emitCustomerCall(body: string, allowMobileKey: boolean) {
 
   L("raw payload", { ...data, _allowMobileKey: allowMobileKey });
 
+  // call/status: { mobile: customer, agent: pandit, status }
+  // show-qr:     { customer, status }
   const customer = normalizeMobile(
-    String(data.customer ?? (allowMobileKey ? (data.mobile ?? "") : "")),
+    String(
+      data.customer ??
+        data.customerMobile ??
+        data.msisdn ??
+        (allowMobileKey ? data.mobile ?? "" : ""),
+    ),
   );
   if (customer.length !== 10) {
-    L("skipped — no valid customer number", { customer: data.customer, mobile: data.mobile });
+    L("skipped — no valid customer number", {
+      customer: data.customer,
+      mobile: data.mobile,
+    });
     return;
   }
 
-  const statusRaw = String(data.status || "").trim();
+  const statusRaw = String(data.status || data.callStatus || "").trim();
   const statusNorm = statusRaw.toLowerCase().replace(/[\s_-]+/g, "");
 
   // oncall / CALLING / CONNECTED / CALL STARTED → "oncall"
@@ -108,14 +118,20 @@ function emitCustomerCall(body: string, allowMobileKey: boolean) {
     statusNorm === "callconnected" ||
     statusNorm === "answered" ||
     statusNorm === "inprogress" ||
-    statusNorm === "ongoing";
+    statusNorm === "ongoing" ||
+    statusNorm === "incall" ||
+    statusNorm === "bridged" ||
+    statusNorm === "showqr";
 
   const isEnded =
     statusNorm === "callended" ||
     statusNorm === "ended" ||
     statusNorm === "disconnected" ||
     statusNorm === "hangup" ||
-    statusNorm === "callend";
+    statusNorm === "callend" ||
+    statusNorm === "completed" ||
+    statusNorm === "cancelled" ||
+    statusNorm === "canceled";
 
   const phase = isOnCall ? "oncall" : isEnded ? "ended" : null;
 
@@ -127,12 +143,24 @@ function emitCustomerCall(body: string, allowMobileKey: boolean) {
   }
 
   const pandit = normalizeMobile(
-    String(data.pandit ?? data.panditMobile ?? data.agent ?? data.agentNumber ?? ""),
+    String(
+      data.pandit ??
+        data.panditMobile ??
+        data.agent ??
+        data.agentNumber ??
+        data.agentMobile ??
+        "",
+    ),
   );
 
   const detail: CustomerCallEvent = { customer, pandit, phase };
   L("emitting CustomerCallEvent ✓", detail);
   window.dispatchEvent(new CustomEvent(CUSTOMER_EVENT, { detail }));
+
+  // Keep Current status in sync when call connects / ends (agent = pandit mobile)
+  if (pandit.length === 10) {
+    emitStatus(pandit, phase === "oncall" ? "BUSY" : "AVAILABLE");
+  }
 }
 
 export function startPanditSocket(): void {
@@ -157,8 +185,14 @@ export function startPanditSocket(): void {
       client?.subscribe(STATUS_TOPIC, (message) => {
         L("← " + STATUS_TOPIC, message.body);
         try {
-          const data = JSON.parse(message.body) as { mobile?: string; status?: string };
-          if (data?.mobile && data?.status) emitStatus(data.mobile, data.status);
+          const data = JSON.parse(message.body) as {
+            mobile?: string;
+            phoneNumber?: string;
+            agent?: string;
+            status?: string;
+          };
+          const mobile = String(data.mobile || data.phoneNumber || data.agent || "");
+          if (mobile && data?.status) emitStatus(mobile, data.status);
           else LE("missing mobile/status", data);
         } catch (err) {
           LE("bad JSON on " + STATUS_TOPIC, err);

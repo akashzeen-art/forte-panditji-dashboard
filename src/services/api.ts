@@ -79,11 +79,20 @@ export function normalizeMobile(raw: string): string {
 }
 
 export function normalizeApiStatus(raw?: string): PanditApiStatus {
-  const s = (raw || "").trim().toUpperCase();
+  const s = (raw || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
   if (s === "AVAILABLE" || s === "ONLINE" || s === "FREE") return "AVAILABLE";
   if (s === "OFFLINE") return "OFFLINE";
-  if (s === "BREAK" || s === "ON_BREAK") return "BREAK";
-  if (s === "BUSY" || s === "ON_CALL") return "BUSY";
+  if (s === "BREAK" || s === "ON_BREAK" || s === "AWAY") return "BREAK";
+  if (
+    s === "BUSY" ||
+    s === "ON_CALL" ||
+    s === "ONCALL" ||
+    s === "CALLING" ||
+    s === "IN_CALL" ||
+    s === "CONNECTED"
+  ) {
+    return "BUSY";
+  }
   return "OFFLINE";
 }
 
@@ -175,6 +184,25 @@ export async function updatePanditStatus(
   }
 }
 
+function mapCustomerDetails(
+  data: Record<string, unknown>,
+  msisdn: string,
+): CustomerCallDetails {
+  const fullName = String(data.fullName || data.name || "").trim();
+  const birthDate = String(data.birthDate || data.dob || "").trim();
+  const birthTimeRaw = String(data.birthTime || data.tob || "").trim();
+  const birthTime = birthTimeRaw.replace(/^(\d{1,2}:\d{2}).*$/, "$1");
+  const birthPlace = String(data.birthPlace || data.pob || "").trim();
+
+  return {
+    mobile: normalizeMobile(String(data.phoneNumber || data.msisdn || msisdn)),
+    fullName: fullName || "Caller",
+    birthDate: birthDate || "—",
+    birthTime: birthTime || "—",
+    birthPlace: birthPlace || "—",
+  };
+}
+
 /** GET /api/astro/getdata?msisdn= — Name, DOB, TOB, POB for the connected caller. */
 export async function fetchCustomerDetails(
   customerMobile: string,
@@ -193,19 +221,45 @@ export async function fetchCustomerDetails(
   }
 
   const data = (await response.json()) as Record<string, unknown>;
-  const fullName = String(data.fullName || data.name || "").trim();
-  const birthDate = String(data.birthDate || data.dob || "").trim();
-  const birthTimeRaw = String(data.birthTime || data.tob || "").trim();
-  const birthTime = birthTimeRaw.replace(/^(\d{1,2}:\d{2}).*$/, "$1");
-  const birthPlace = String(data.birthPlace || data.pob || "").trim();
+  return mapCustomerDetails(data, msisdn);
+}
 
-  return {
-    mobile: normalizeMobile(String(data.phoneNumber || msisdn)),
-    fullName: fullName || "Caller",
-    birthDate: birthDate || "—",
-    birthTime: birthTime || "—",
-    birthPlace: birthPlace || "—",
+/**
+ * Retries getdata a few times — profile can lag right after OTP / saveuserdata.
+ */
+export async function fetchCustomerDetailsWithRetry(
+  customerMobile: string,
+  attempts = 4,
+  delayMs = 900,
+): Promise<CustomerCallDetails> {
+  const msisdn = normalizeMobile(customerMobile);
+  const fallback: CustomerCallDetails = {
+    mobile: msisdn,
+    fullName: "Caller",
+    birthDate: "—",
+    birthTime: "—",
+    birthPlace: "—",
   };
+  if (msisdn.length !== 10) return fallback;
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const details = await fetchCustomerDetails(msisdn);
+      if (details && details.fullName && details.fullName !== "Caller") {
+        return details;
+      }
+      if (details) {
+        // Keep last non-null result even if name is still placeholder
+        if (i === attempts - 1) return details;
+      }
+    } catch {
+      /* retry */
+    }
+    if (i < attempts - 1) {
+      await new Promise((r) => window.setTimeout(r, delayMs));
+    }
+  }
+  return fallback;
 }
 
 /** GET /api/consultation/items — pooja / stone catalog for Pandit Ji. */

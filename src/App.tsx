@@ -17,7 +17,7 @@ import {
 import {
   clearSession,
   fetchConsultationItems,
-  fetchCustomerDetails,
+  fetchCustomerDetailsWithRetry,
   fetchPanditByMobile,
   getStoredMobile,
   getStoredProfile,
@@ -244,6 +244,40 @@ export default function App() {
     });
   }, [panditDigits, view]);
 
+  // Backup: refresh Current status from API while dashboard is open
+  useEffect(() => {
+    if (panditDigits.length !== 10 || view !== "dashboard") return;
+
+    const refresh = () => {
+      fetchPanditByMobile(panditDigits)
+        .then((data) => {
+          setProfile((prev) => {
+            if (!prev) return data;
+            // Keep optimistic BUSY while a caller is connected if API lags
+            if (
+              qrCustomerRef.current.length === 10 &&
+              normalizeApiStatus(data.status) === "AVAILABLE"
+            ) {
+              return { ...data, status: "BUSY" };
+            }
+            return data;
+          });
+        })
+        .catch(() => {});
+    };
+
+    refresh();
+    const id = window.setInterval(refresh, 12_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [panditDigits, view]);
+
   useEffect(() => {
     if (panditDigits.length !== 10 || view !== "dashboard") return;
 
@@ -255,36 +289,40 @@ export default function App() {
     };
 
     const off = onCustomerCall(({ customer, pandit, phase }) => {
-      if (pandit && pandit !== panditDigits) return;
+      // Only ignore when agent/pandit is present AND clearly another Pandit Ji
+      if (pandit.length === 10 && pandit !== panditDigits) {
+        return;
+      }
+
       if (phase === "oncall") {
         qrCustomerRef.current = customer;
         setQrCustomer(customer);
         setPaymentLinkResult(null);
         setSentItemIds([]);
         setSendingItemId(null);
-        setCallerDetails(null);
         setCallerLoading(true);
-        fetchCustomerDetails(customer)
+        // Update Current status immediately
+        setProfile((prev) => (prev ? { ...prev, status: "BUSY" } : prev));
+
+        void fetchCustomerDetailsWithRetry(customer)
           .then((details) => {
             if (qrCustomerRef.current !== customer) return;
             setCallerDetails(details);
           })
-          .catch(() => {
-            if (qrCustomerRef.current !== customer) return;
-            setCallerDetails({
-              mobile: customer,
-              fullName: "Caller",
-              birthDate: "—",
-              birthTime: "—",
-              birthPlace: "—",
-            });
-          })
           .finally(() => {
             if (qrCustomerRef.current === customer) setCallerLoading(false);
           });
+
+        timers.push(window.setTimeout(refreshProfile, 2500));
         return;
       }
-      if (qrCustomerRef.current !== customer) return;
+
+      if (
+        qrCustomerRef.current.length === 10 &&
+        qrCustomerRef.current !== customer
+      ) {
+        return;
+      }
       qrCustomerRef.current = "";
       setQrCustomer("");
       setCallerDetails(null);
@@ -292,6 +330,7 @@ export default function App() {
       setPaymentLinkResult(null);
       setSendingItemId(null);
       setSentItemIds([]);
+      setProfile((prev) => (prev ? { ...prev, status: "AVAILABLE" } : prev));
       refreshProfile();
       timers.push(window.setTimeout(refreshProfile, 4000));
     });
