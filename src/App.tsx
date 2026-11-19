@@ -461,6 +461,7 @@ export default function App() {
         customer: qrCustomer,
         customerName: callerDetails?.fullName || "Caller",
         agent,
+        agentName: profile?.fullName || "Pandit Ji",
         amount: item.amount,
         itemCode: item.code,
       });
