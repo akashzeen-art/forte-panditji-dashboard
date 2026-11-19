@@ -376,8 +376,10 @@ export type HistoryPurchase = {
 export type HistoryCall = {
   callDate: string;
   customerCallDuration: string;
+  /** Kept for View → getdata; never display on History list. */
   customerNumber: string;
   callTime: string;
+  customerName: string;
 };
 
 export type PanditHistory = {
@@ -450,11 +452,18 @@ export async function fetchPanditHistory(
 
   const callHistory: HistoryCall[] = callsRaw.map((raw) => {
     const row = raw as Record<string, unknown>;
+    const customerNumber = normalizeMobile(
+      String(row.customer_number || row.msisdn || row.customer_mobile || ""),
+    );
+    const customerName = String(
+      row.customer_name || row.customerName || row.fullName || row.name || "",
+    ).trim();
     return {
       callDate: String(row.call_date || ""),
       customerCallDuration: String(row.customer_call_duration || "00:00:00"),
-      customerNumber: String(row.customer_number || "").trim(),
+      customerNumber,
       callTime: String(row.call_time || ""),
+      customerName: customerName || "Customer",
     };
   });
 
