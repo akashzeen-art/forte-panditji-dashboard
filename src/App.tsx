@@ -3,6 +3,7 @@ import type { ConfirmationResult } from "firebase/auth";
 import {
   ArrowLeft,
   Check,
+  History,
   Loader2,
   LogOut,
   MessageSquare,
@@ -42,8 +43,9 @@ import {
   startPanditSocket,
 } from "./services/socket";
 import PanditAvatar from "./components/PanditAvatar";
+import HistoryPage from "./components/HistoryPage";
 
-type View = "login" | "dashboard";
+type View = "login" | "dashboard" | "history";
 type LoginStep = "mobile" | "otp";
 
 const RECAPTCHA_CONTAINER_ID = "recaptcha-container";
@@ -71,8 +73,8 @@ const STATUS_OPTIONS: {
   },
   {
     id: "BUSY",
-    label: "On consultation",
-    hint: "Live with a seeker",
+    label: "Busy",
+    hint: "Live with a customer",
     icon: PhoneOff,
     tone: "border-[#e8d9c8] bg-[#fbf6ee] text-stone-700",
     active:
@@ -546,7 +548,7 @@ export default function App() {
             </div>
           </div>
 
-          {view === "dashboard" && (
+          {(view === "dashboard" || view === "history") && (
             <div
               className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
                 wsConnected
@@ -576,7 +578,7 @@ export default function App() {
                 {loginStep === "mobile" ? (
                   <>
                     Enter your registered mobile. After OTP your status becomes{" "}
-                    <span className="font-semibold text-green-700">AVAILABLE</span> for seekers.
+                    <span className="font-semibold text-green-700">AVAILABLE</span> for customers.
                   </>
                 ) : (
                   <>
@@ -711,19 +713,40 @@ export default function App() {
               Guided consultations · Vedic wisdom · Live darshan
             </p>
           </>
+        ) : view === "history" && profile ? (
+          <HistoryPage
+            agentMobile={profile.phoneNumber}
+            onBack={() => setView("dashboard")}
+          />
         ) : (
           profile && (
             <div className="flex flex-1 flex-col pb-4">
               {/* Profile hero */}
               <section className="sutra-card mb-5 overflow-hidden rounded-3xl">
                 <div className="border-b border-[#e8d9c8] bg-gradient-to-r from-[#fff7ed] via-[#fff7ed]/70 to-transparent px-5 py-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9a3412]">
-                    Your seat
-                  </p>
-                  <h1 className="font-display text-2xl font-bold text-stone-900">
-                    Namaste, {profile.fullName.split(" ")[0]}
-                  </h1>
-                  <p className="text-sm text-stone-600">{profile.title}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9a3412]">
+                        Your seat
+                      </p>
+                      <h1 className="font-display text-2xl font-bold text-stone-900">
+                        Namaste, {profile.fullName.split(" ")[0]}
+                      </h1>
+                      <p className="text-sm text-stone-600">{profile.title}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError("");
+                        setSuccess("");
+                        setView("history");
+                      }}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#e8d9c8] bg-white px-3 py-2 text-xs font-bold text-[#9a3412] shadow-sm transition hover:bg-[#fff7ed]"
+                    >
+                      <History className="h-3.5 w-3.5" />
+                      History
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 p-5">
                   <PanditAvatar
@@ -746,7 +769,7 @@ export default function App() {
                 <SectionTitle
                   eyebrow="Seva status"
                   title="Are you available?"
-                  hint="Seekers see this live on the talk portal"
+                  hint="Customers see this live on the talk portal"
                 />
                 <div className="mb-1 flex justify-end">
                   {saving && <Loader2 className="h-4 w-4 animate-spin text-[#c2410c]" />}
@@ -803,14 +826,14 @@ export default function App() {
                   </span>
                   <SectionTitle
                     eyebrow="Live call"
-                    title="Seeker details"
+                    title="Customer details"
                     hint="Shown when the consultation connects"
                   />
                 </div>
 
                 {qrCustomer.length !== 10 ? (
                   <p className="rounded-2xl border border-dashed border-[#e8d9c8] bg-[#fff7ed]/80 px-3.5 py-4 text-center text-sm text-stone-500">
-                    Waiting for a seeker to connect…
+                    Waiting for a customer to connect…
                   </p>
                 ) : callerLoading ? (
                   <p className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-3.5 py-4 text-sm text-stone-600">
@@ -849,7 +872,7 @@ export default function App() {
                   <SectionTitle
                     eyebrow="Dakshina & seva"
                     title="Consultation items"
-                    hint="Tap Send to share a payment link with the seeker"
+                    hint="Tap Send to share a payment link with the customer"
                   />
                 </div>
 
@@ -866,7 +889,7 @@ export default function App() {
                     }`}
                   />
                   {qrCustomer.length === 10
-                    ? "Seeker connected — choose an item to send"
+                    ? "Customer connected — choose an item to send"
                     : "Connect a call to enable Send"}
                 </div>
 

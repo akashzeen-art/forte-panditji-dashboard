@@ -32,6 +32,8 @@ const CONSULTATION_ITEMS_PATH =
   import.meta.env.VITE_CONSULTATION_ITEMS_URL || "/api/consultation/items";
 const PAYMENT_LINK_PATH =
   import.meta.env.VITE_ASTRO_PAYMENT_LINK_URL || "/api/astro/payment-link";
+const PANDIT_HISTORY_PATH =
+  import.meta.env.VITE_ASTRO_PANDIT_HISTORY_URL || "/api/astro/pandit/history";
 const DEFAULT_PORTAL_ID = import.meta.env.VITE_PORTAL_ID || "1028";
 const SESSION_KEY = "pandit_dashboard_mobile";
 const PROFILE_KEY = "pandit_dashboard_profile";
@@ -348,6 +350,112 @@ export async function sendPaymentLink(input: {
     const text = await response.text().catch(() => "");
     throw new Error(text || `Payment link failed (${response.status})`);
   }
+}
+
+export type HistoryPurchaseItem = {
+  itemCode: string;
+  productName: string;
+  amount: number;
+  quantity: number;
+};
+
+export type HistoryPurchase = {
+  transactionId: number;
+  customerMobile: string;
+  customerName: string;
+  createdAt: string;
+  totalAmount: number;
+  paymentStatus: string | null;
+  paymentDate: string;
+  items: HistoryPurchaseItem[];
+};
+
+export type HistoryCall = {
+  callDate: string;
+  customerCallDuration: string;
+  customerNumber: string;
+  callTime: string;
+};
+
+export type PanditHistory = {
+  purchaseHistory: HistoryPurchase[];
+  callHistory: HistoryCall[];
+};
+
+/** Local calendar date as YYYY-MM-DD */
+export function toSearchDate(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** GET /api/astro/pandit/history?agent=&searchDate=YYYY-MM-DD */
+export async function fetchPanditHistory(
+  agentMobile: string,
+  searchDate: string,
+): Promise<PanditHistory> {
+  const agent = normalizeMobile(agentMobile);
+  if (agent.length !== 10) {
+    throw new Error("Pandit Ji mobile is missing");
+  }
+  const date = String(searchDate || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("Choose a valid date");
+  }
+
+  const url =
+    `${resolveApiUrl(PANDIT_HISTORY_PATH)}?agent=${encodeURIComponent(agent)}` +
+    `&searchDate=${encodeURIComponent(date)}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Could not load history (${response.status})`);
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+  const purchasesRaw = Array.isArray(data.purchaseHistory) ? data.purchaseHistory : [];
+  const callsRaw = Array.isArray(data.callHistory) ? data.callHistory : [];
+
+  const purchaseHistory: HistoryPurchase[] = purchasesRaw.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    const itemsRaw = Array.isArray(row.items) ? row.items : [];
+    return {
+      transactionId: Number(row.transaction_id) || 0,
+      customerMobile: normalizeMobile(String(row.customer_mobile || "")),
+      customerName: String(row.customer_name || "Customer").trim() || "Customer",
+      createdAt: String(row.created_at || ""),
+      totalAmount: Number(row.total_amount) || 0,
+      paymentStatus: row.payment_status == null ? null : String(row.payment_status),
+      paymentDate: String(row.payment_date || ""),
+      items: itemsRaw.map((itemRaw) => {
+        const item = itemRaw as Record<string, unknown>;
+        return {
+          itemCode: String(item.item_code || "").trim(),
+          productName: String(item.product_name || "Item").trim() || "Item",
+          amount: Number(item.amount) || 0,
+          quantity: Number(item.quantity) || 1,
+        };
+      }),
+    };
+  });
+
+  const callHistory: HistoryCall[] = callsRaw.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    return {
+      callDate: String(row.call_date || ""),
+      customerCallDuration: String(row.customer_call_duration || "00:00:00"),
+      customerNumber: String(row.customer_number || "").trim(),
+      callTime: String(row.call_time || ""),
+    };
+  });
+
+  return { purchaseHistory, callHistory };
 }
 
 /** Login: load profile then set AVAILABLE */
