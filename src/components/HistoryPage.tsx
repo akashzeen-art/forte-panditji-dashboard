@@ -55,9 +55,14 @@ function formatDateTime(raw: string): string {
   });
 }
 
+function isSuccessfulPayment(status: string | null | undefined): boolean {
+  const s = (status || "").trim().toUpperCase();
+  return s === "SUCCESS" || s === "PAID" || s === "COMPLETED";
+}
+
 function paymentTone(status: string | null): string {
   const s = (status || "").trim().toUpperCase();
-  if (s === "SUCCESS" || s === "PAID" || s === "COMPLETED") {
+  if (isSuccessfulPayment(s)) {
     return "border-green-300 bg-green-50 text-green-800";
   }
   if (s === "FAILED" || s === "FAILURE" || s === "CANCELLED") {
@@ -336,7 +341,11 @@ export default function HistoryPage({ agentMobile, onBack }: HistoryPageProps) {
   const calls = history.callHistory;
 
   const { totalAmount, amountEarn } = useMemo(() => {
-    const total = purchases.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0);
+    // Count only successful payments — PENDING / failed stay out of totals
+    const total = purchases.reduce((sum, p) => {
+      if (!isSuccessfulPayment(p.paymentStatus)) return sum;
+      return sum + (Number(p.totalAmount) || 0);
+    }, 0);
     return {
       totalAmount: total,
       amountEarn: Math.round(total * EARN_RATE),
@@ -434,7 +443,9 @@ export default function HistoryPage({ agentMobile, onBack }: HistoryPageProps) {
           <p className="font-display text-2xl font-bold tabular-nums text-green-800">
             {formatInr(amountEarn)}
           </p>
-          <p className="mt-1 text-[11px] text-stone-500">40% of Total Amount</p>
+          <p className="mt-1 text-[11px] text-stone-500">
+            40% of successful payments
+          </p>
         </div>
       </section>
 
