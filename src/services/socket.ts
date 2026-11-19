@@ -28,6 +28,8 @@ export type CustomerCallEvent = {
   /** Pandit mobile when the backend includes it — used to ignore other Pandit Ji's calls. */
   pandit: string;
   phase: "oncall" | "ended";
+  /** User / customer portal id from socket (payment-link must use this). */
+  portalId: string;
 };
 
 let client: Client | null = null;
@@ -153,7 +155,18 @@ function emitCustomerCall(body: string, allowMobileKey: boolean) {
     ),
   );
 
-  const detail: CustomerCallEvent = { customer, pandit, phase };
+  // User portal id from socket — never invent; empty if backend omitted it
+  const portalRaw = String(
+    data.portalId ??
+      data.portal_id ??
+      data.userPortalId ??
+      data.user_portal_id ??
+      data.portal ??
+      "",
+  ).trim();
+  const portalId = /^\d+$/.test(portalRaw) ? portalRaw : "";
+
+  const detail: CustomerCallEvent = { customer, pandit, phase, portalId };
   L("emitting CustomerCallEvent ✓", detail);
   window.dispatchEvent(new CustomEvent(CUSTOMER_EVENT, { detail }));
 

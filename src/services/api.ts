@@ -328,7 +328,11 @@ export async function sendPaymentLink(input: {
     throw new Error("Item code is required");
   }
 
-  const portalRaw = String(input.portalId ?? DEFAULT_PORTAL_ID).trim() || "1028";
+  // Prefer the connected user's portal id (from socket). Fallback only if omitted.
+  const portalRaw =
+    String(input.portalId ?? "").trim() ||
+    String(DEFAULT_PORTAL_ID || "").trim() ||
+    "1028";
   const portalNum = Number(portalRaw);
   const payload: PaymentLinkPayload = {
     portalId: Number.isFinite(portalNum) ? portalNum : portalRaw,

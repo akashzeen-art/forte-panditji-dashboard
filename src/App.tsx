@@ -147,6 +147,9 @@ export default function App() {
   const [resendIn, setResendIn] = useState(0);
   const [qrCustomer, setQrCustomer] = useState("");
   const qrCustomerRef = useRef("");
+  /** Portal id of the connected user — taken from socket, used for payment-link */
+  const [customerPortalId, setCustomerPortalId] = useState("");
+  const customerPortalIdRef = useRef("");
   const [callerDetails, setCallerDetails] = useState<CustomerCallDetails | null>(null);
   const [callerLoading, setCallerLoading] = useState(false);
   const [catalog, setCatalog] = useState<ConsultationItem[]>([]);
@@ -309,7 +312,7 @@ export default function App() {
         .catch(() => {});
     };
 
-    const off = onCustomerCall(({ customer, pandit, phase }) => {
+    const off = onCustomerCall(({ customer, pandit, phase, portalId }) => {
       // Only ignore when agent/pandit is present AND clearly another Pandit Ji
       if (pandit.length === 10 && pandit !== panditDigits) {
         return;
@@ -318,6 +321,11 @@ export default function App() {
       if (phase === "oncall") {
         qrCustomerRef.current = customer;
         setQrCustomer(customer);
+        // Keep user's portal id from socket for payment-link Send
+        if (portalId) {
+          customerPortalIdRef.current = portalId;
+          setCustomerPortalId(portalId);
+        }
         setPaymentLinkResult(null);
         setSentItemIds([]);
         setSendingItemId(null);
@@ -346,6 +354,8 @@ export default function App() {
       }
       qrCustomerRef.current = "";
       setQrCustomer("");
+      customerPortalIdRef.current = "";
+      setCustomerPortalId("");
       setCallerDetails(null);
       setCallerLoading(false);
       setPaymentLinkResult(null);
@@ -467,6 +477,15 @@ export default function App() {
       setPaymentLinkResult({ ok: false, text: "Pandit Ji mobile is missing" });
       return;
     }
+    const portalId =
+      customerPortalIdRef.current.trim() || customerPortalId.trim();
+    if (!portalId) {
+      setPaymentLinkResult({
+        ok: false,
+        text: "User portal id missing from socket. Wait for the call event and try again.",
+      });
+      return;
+    }
 
     // Lock all other buttons while this one sends
     setSendingItemId(item.id);
@@ -479,13 +498,14 @@ export default function App() {
         panditName: profile?.fullName || "Pandit Ji",
         amount: item.amount,
         itemCode: item.code,
+        portalId,
       });
       setSentItemIds((prev) =>
         prev.includes(item.id) ? prev : [...prev, item.id],
       );
       setPaymentLinkResult({
         ok: true,
-        text: `Payment link sent for ${item.description} (₹${item.amount.toLocaleString("en-IN")})`,
+        text: `Payment link sent for ${item.description} (₹${item.amount.toLocaleString("en-IN")}) · portal ${portalId}`,
       });
     } catch (err) {
       setPaymentLinkResult({
