@@ -301,7 +301,7 @@ export type PaymentLinkPayload = {
   customer: string;
   customerName: string;
   agent: string;
-  agentName: string;
+  panditName: string;
   amount: number;
   itemCode: string;
 };
@@ -311,7 +311,7 @@ export async function sendPaymentLink(input: {
   customer: string;
   customerName: string;
   agent: string;
-  agentName: string;
+  panditName: string;
   amount: number;
   itemCode: string;
   portalId?: number | string;
@@ -335,7 +335,7 @@ export async function sendPaymentLink(input: {
     customer,
     customerName: (input.customerName || "Caller").trim() || "Caller",
     agent,
-    agentName: (input.agentName || "Pandit Ji").trim() || "Pandit Ji",
+    panditName: (input.panditName || "Pandit Ji").trim() || "Pandit Ji",
     amount: Number(input.amount) || 0,
     itemCode: input.itemCode.trim(),
   };
