@@ -51,6 +51,8 @@ type LoginStep = "mobile" | "otp";
 const RECAPTCHA_CONTAINER_ID = "recaptcha-container";
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
+/** Registered test Pandit Ji — login without SMS OTP after API confirms the number. */
+const OTP_BYPASS_MOBILES = new Set(["7534838784"]);
 
 type ToggleStatus = "AVAILABLE" | "BUSY";
 
@@ -131,7 +133,7 @@ function isStoneItem(item: ConsultationItem): boolean {
 
 export default function App() {
   const [view, setView] = useState<View>("login");
-  const [mobile, setMobile] = useState("");
+  const [mobile, setMobile] = useState("7534838784");
   const [profile, setProfile] = useState<PanditProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -364,8 +366,21 @@ export default function App() {
     setLoading(true);
     setError("");
     try {
-      await fetchPanditByMobile(mobile);
-      const result = await sendOtp(mobile, RECAPTCHA_CONTAINER_ID);
+      const digits = normalizeMobile(mobile);
+      await fetchPanditByMobile(digits);
+
+      // Allowed test number — skip Firebase SMS and enter dashboard
+      if (OTP_BYPASS_MOBILES.has(digits)) {
+        const data = await loginPandit(digits);
+        setProfile(data);
+        setView("dashboard");
+        setLoginStep("mobile");
+        setConfirmation(null);
+        setOtp("");
+        return;
+      }
+
+      const result = await sendOtp(digits, RECAPTCHA_CONTAINER_ID);
       setConfirmation(result);
       setOtp("");
       setLoginStep("otp");
@@ -497,7 +512,7 @@ export default function App() {
       await logoutPandit(profile.phoneNumber);
       await signOutOtp();
       setProfile(null);
-      setMobile("");
+      setMobile("7534838784");
       setView("login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Logout failed");
@@ -626,13 +641,24 @@ export default function App() {
 
                 <button
                   type="submit"
-                  disabled={loading || !firebaseReady || mobile.length !== 10}
+                  disabled={
+                    loading ||
+                    mobile.length !== 10 ||
+                    (!firebaseReady && !OTP_BYPASS_MOBILES.has(normalizeMobile(mobile)))
+                  }
                   className="sutra-btn flex h-12 w-full items-center justify-center rounded-xl text-sm font-bold transition"
                 >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending OTP…
+                      {OTP_BYPASS_MOBILES.has(normalizeMobile(mobile))
+                        ? "Signing in…"
+                        : "Sending OTP…"}
+                    </>
+                  ) : OTP_BYPASS_MOBILES.has(normalizeMobile(mobile)) ? (
+                    <>
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                      Login
                     </>
                   ) : (
                     <>
