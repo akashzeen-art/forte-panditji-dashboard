@@ -44,6 +44,7 @@ import {
 } from "./services/socket";
 import PanditAvatar from "./components/PanditAvatar";
 import HistoryPage from "./components/HistoryPage";
+import OtpDigitBlocks from "./components/OtpDigitBlocks";
 
 type View = "login" | "dashboard" | "history";
 type LoginStep = "mobile" | "otp";
@@ -693,20 +694,15 @@ export default function App() {
                 onSubmit={(e) => void handleVerifyOtp(e)}
                 className="sutra-card rounded-3xl p-5"
               >
-                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-stone-500">
+                <label className="mb-3 block text-[11px] font-semibold uppercase tracking-wider text-stone-500">
                   One-time password
                 </label>
-                <input
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  autoFocus
-                  maxLength={OTP_LENGTH}
+                <OtpDigitBlocks
+                  length={OTP_LENGTH}
                   value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))
-                  }
-                  placeholder="••••••"
-                  className="mb-4 h-12 w-full rounded-xl border border-[#e8d9c8] bg-white px-4 text-center text-xl font-semibold tracking-[0.5em] text-stone-900 outline-none placeholder:text-stone-300 focus:border-[#c2410c] focus:ring-2 focus:ring-[#fdba74]/50"
+                  onChange={setOtp}
+                  disabled={loading}
+                  autoFocus
                 />
 
                 {error && (
