@@ -15,15 +15,21 @@ import {
   WifiOff,
 } from "lucide-react";
 import {
+  clearActiveCallSession,
   clearSession,
   fetchConsultationItems,
   fetchCustomerDetailsWithRetry,
+  fetchCustomerPortalId,
+  fetchLatestConnectedCustomer,
   fetchPanditByMobile,
   getStoredMobile,
   getStoredProfile,
+  loadActiveCallSession,
   loginPandit,
   logoutPandit,
   normalizeMobile,
+  resendPaymentLink,
+  saveActiveCallSession,
   sendPaymentLink,
   statusLabel,
   updatePanditStatus,
@@ -52,6 +58,8 @@ type LoginStep = "mobile" | "otp";
 const RECAPTCHA_CONTAINER_ID = "recaptcha-container";
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
+/** After Send on a product, Resend appears on that product only after this delay. */
+const PAYMENT_RESEND_SECONDS = 30;
 
 type ToggleStatus = "AVAILABLE" | "BUSY";
 
@@ -155,7 +163,10 @@ export default function App() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState("");
   const [sendingItemId, setSendingItemId] = useState<number | null>(null);
-  const [sentItemIds, setSentItemIds] = useState<number[]>([]);
+  /** Product that was sent — other Send buttons stay disabled; this one can Resend after 30s. */
+  const [lockedSendItemId, setLockedSendItemId] = useState<number | null>(null);
+  const [merchantOrderId, setMerchantOrderId] = useState("");
+  const [paymentResendIn, setPaymentResendIn] = useState(0);
   const [paymentLinkResult, setPaymentLinkResult] = useState<{
     ok: boolean;
     text: string;
@@ -163,6 +174,62 @@ export default function App() {
   const firebaseReady = isFirebaseConfigured();
 
   const panditDigits = normalizeMobile(profile?.phoneNumber || mobile);
+
+  const clearConnectedCustomer = useCallback(() => {
+    qrCustomerRef.current = "";
+    setQrCustomer("");
+    customerPortalIdRef.current = "";
+    setCustomerPortalId("");
+    setCallerDetails(null);
+    setCallerLoading(false);
+    setPaymentLinkResult(null);
+    setSendingItemId(null);
+    setLockedSendItemId(null);
+    setMerchantOrderId("");
+    setPaymentResendIn(0);
+    clearActiveCallSession();
+  }, []);
+
+  const attachConnectedCustomer = useCallback(
+    async (customerRaw: string, portalRaw?: string, panditRaw?: string) => {
+      const customer = normalizeMobile(customerRaw);
+      if (customer.length !== 10) return;
+
+      qrCustomerRef.current = customer;
+      setQrCustomer(customer);
+      setPaymentLinkResult(null);
+      setCallerLoading(true);
+      setProfile((prev) => (prev ? { ...prev, status: "BUSY" } : prev));
+
+      let portalId = String(portalRaw || "").trim();
+      if (!/^\d+$/.test(portalId)) {
+        portalId = await fetchCustomerPortalId(customer);
+      }
+      if (/^\d+$/.test(portalId)) {
+        customerPortalIdRef.current = portalId;
+        setCustomerPortalId(portalId);
+      }
+
+      const pandit = normalizeMobile(panditRaw || panditDigits);
+      if (pandit.length === 10) {
+        saveActiveCallSession({
+          pandit,
+          customer,
+          portalId: /^\d+$/.test(portalId) ? portalId : "",
+          connectedAt: Date.now(),
+        });
+      }
+
+      try {
+        const details = await fetchCustomerDetailsWithRetry(customer);
+        if (qrCustomerRef.current !== customer) return;
+        setCallerDetails(details);
+      } finally {
+        if (qrCustomerRef.current === customer) setCallerLoading(false);
+      }
+    },
+    [panditDigits],
+  );
 
   const poojaCatalog = useMemo(
     () => catalog.filter((item) => !isStoneItem(item)),
@@ -259,6 +326,54 @@ export default function App() {
   }, [resendIn]);
 
   useEffect(() => {
+    if (paymentResendIn <= 0) return;
+    const timer = window.setTimeout(
+      () => setPaymentResendIn((s) => Math.max(0, s - 1)),
+      1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [paymentResendIn]);
+
+  // Restore customer details after refresh / login on another device while BUSY
+  useEffect(() => {
+    if (panditDigits.length !== 10 || view !== "dashboard" || !profile) return;
+
+    const profileStatus = statusLabel(profile.status);
+    if (profileStatus !== "BUSY") {
+      // Call ended elsewhere — drop stale local session
+      if (qrCustomerRef.current.length === 10) return;
+      clearActiveCallSession();
+      return;
+    }
+
+    if (qrCustomerRef.current.length === 10) return;
+
+    let cancelled = false;
+
+    const restore = async () => {
+      const stored = loadActiveCallSession(panditDigits);
+      if (stored?.customer) {
+        if (cancelled) return;
+        await attachConnectedCustomer(stored.customer, stored.portalId, panditDigits);
+        return;
+      }
+
+      try {
+        const latest = await fetchLatestConnectedCustomer(panditDigits);
+        if (cancelled || !latest?.customer) return;
+        await attachConnectedCustomer(latest.customer, undefined, panditDigits);
+      } catch {
+        /* ignore — wait for socket */
+      }
+    };
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [panditDigits, view, profile, attachConnectedCustomer]);
+
+  useEffect(() => {
     if (panditDigits.length !== 10 || view !== "dashboard") return;
 
     return onWsStatus(({ mobile: wsMobile, status }) => {
@@ -318,29 +433,10 @@ export default function App() {
       }
 
       if (phase === "oncall") {
-        qrCustomerRef.current = customer;
-        setQrCustomer(customer);
-        // Keep user's portal id from socket for payment-link Send
-        if (portalId) {
-          customerPortalIdRef.current = portalId;
-          setCustomerPortalId(portalId);
-        }
-        setPaymentLinkResult(null);
-        setSentItemIds([]);
-        setSendingItemId(null);
-        setCallerLoading(true);
-        // Update Current status immediately
-        setProfile((prev) => (prev ? { ...prev, status: "BUSY" } : prev));
-
-        void fetchCustomerDetailsWithRetry(customer)
-          .then((details) => {
-            if (qrCustomerRef.current !== customer) return;
-            setCallerDetails(details);
-          })
-          .finally(() => {
-            if (qrCustomerRef.current === customer) setCallerLoading(false);
-          });
-
+        setLockedSendItemId(null);
+        setMerchantOrderId("");
+        setPaymentResendIn(0);
+        void attachConnectedCustomer(customer, portalId, panditDigits);
         timers.push(window.setTimeout(refreshProfile, 2500));
         return;
       }
@@ -351,15 +447,7 @@ export default function App() {
       ) {
         return;
       }
-      qrCustomerRef.current = "";
-      setQrCustomer("");
-      customerPortalIdRef.current = "";
-      setCustomerPortalId("");
-      setCallerDetails(null);
-      setCallerLoading(false);
-      setPaymentLinkResult(null);
-      setSendingItemId(null);
-      setSentItemIds([]);
+      clearConnectedCustomer();
       setProfile((prev) => (prev ? { ...prev, status: "AVAILABLE" } : prev));
       refreshProfile();
       timers.push(window.setTimeout(refreshProfile, 4000));
@@ -369,7 +457,7 @@ export default function App() {
       off();
       timers.forEach((t) => window.clearTimeout(t));
     };
-  }, [panditDigits, view]);
+  }, [panditDigits, view, attachConnectedCustomer, clearConnectedCustomer]);
 
   const requestOtp = async () => {
     setLoading(true);
@@ -449,9 +537,29 @@ export default function App() {
     }
   };
 
+  const resolvePortalIdForPayment = async (): Promise<string> => {
+    let portalId =
+      customerPortalIdRef.current.trim() || customerPortalId.trim();
+    if (/^\d+$/.test(portalId)) return portalId;
+    if (qrCustomer.length === 10) {
+      portalId = await fetchCustomerPortalId(qrCustomer);
+      if (/^\d+$/.test(portalId)) {
+        customerPortalIdRef.current = portalId;
+        setCustomerPortalId(portalId);
+        const stored = loadActiveCallSession(panditDigits);
+        if (stored) {
+          saveActiveCallSession({ ...stored, portalId });
+        }
+        return portalId;
+      }
+    }
+    return "";
+  };
+
   const handleSendPaymentLink = async (item: ConsultationItem) => {
     if (sendingItemId != null) return;
-    if (sentItemIds.includes(item.id)) return;
+    // After one product is sent, only that product can Resend
+    if (lockedSendItemId != null && lockedSendItemId !== item.id) return;
     if (qrCustomer.length !== 10) {
       setPaymentLinkResult({
         ok: false,
@@ -464,21 +572,20 @@ export default function App() {
       setPaymentLinkResult({ ok: false, text: "Pandit Ji mobile is missing" });
       return;
     }
-    const portalId =
-      customerPortalIdRef.current.trim() || customerPortalId.trim();
-    if (!portalId) {
-      setPaymentLinkResult({
-        ok: false,
-        text: "User portal id missing from socket. Wait for the call event and try again.",
-      });
-      return;
-    }
 
-    // Lock all other buttons while this one sends
     setSendingItemId(item.id);
     setPaymentLinkResult(null);
     try {
-      await sendPaymentLink({
+      const portalId = await resolvePortalIdForPayment();
+      if (!portalId) {
+        setPaymentLinkResult({
+          ok: false,
+          text: "User portal id missing. Wait for the call event and try again.",
+        });
+        return;
+      }
+
+      const result = await sendPaymentLink({
         customer: qrCustomer,
         customerName: callerDetails?.fullName || "Caller",
         agent,
@@ -487,12 +594,12 @@ export default function App() {
         itemCode: item.code,
         portalId,
       });
-      setSentItemIds((prev) =>
-        prev.includes(item.id) ? prev : [...prev, item.id],
-      );
+      setLockedSendItemId(item.id);
+      setMerchantOrderId(result.merchantOrderId);
+      setPaymentResendIn(PAYMENT_RESEND_SECONDS);
       setPaymentLinkResult({
         ok: true,
-        text: `Payment link sent for ${item.description} (₹${item.amount.toLocaleString("en-IN")}) · portal ${portalId}`,
+        text: `Payment link sent for ${item.description} (₹${item.amount.toLocaleString("en-IN")})`,
       });
     } catch (err) {
       setPaymentLinkResult({
@@ -504,8 +611,50 @@ export default function App() {
     }
   };
 
+  const handleResendPaymentLink = async (item: ConsultationItem) => {
+    if (sendingItemId != null) return;
+    if (lockedSendItemId !== item.id) return;
+    if (paymentResendIn > 0) return;
+
+    setSendingItemId(item.id);
+    setPaymentLinkResult(null);
+    try {
+      const portalId = await resolvePortalIdForPayment();
+      const orderId = merchantOrderId.trim() || qrCustomer;
+      if (!portalId) {
+        setPaymentLinkResult({
+          ok: false,
+          text: "User portal id missing. Cannot resend payment link.",
+        });
+        return;
+      }
+      if (!orderId) {
+        setPaymentLinkResult({
+          ok: false,
+          text: "Merchant order id missing. Send again first.",
+        });
+        return;
+      }
+
+      await resendPaymentLink({ portalId, merchantOrderId: orderId });
+      setPaymentResendIn(PAYMENT_RESEND_SECONDS);
+      setPaymentLinkResult({
+        ok: true,
+        text: `Payment link resent for ${item.description}`,
+      });
+    } catch (err) {
+      setPaymentLinkResult({
+        ok: false,
+        text: err instanceof Error ? err.message : "Could not resend payment link",
+      });
+    } finally {
+      setSendingItemId(null);
+    }
+  };
+
   const handleLogout = async () => {
     if (!profile?.phoneNumber) {
+      clearConnectedCustomer();
       clearSession();
       await signOutOtp();
       setView("login");
@@ -518,6 +667,7 @@ export default function App() {
     try {
       await logoutPandit(profile.phoneNumber);
       await signOutOtp();
+      clearConnectedCustomer();
       setProfile(null);
       setMobile("");
       setView("login");
@@ -928,21 +1078,32 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {poojaCatalog.map((item) => {
                       const busy = sendingItemId === item.id;
-                      const alreadySent = sentItemIds.includes(item.id);
-                      const lockedOthers = sendingItemId != null && sendingItemId !== item.id;
+                      const isLockedProduct = lockedSendItemId === item.id;
+                      const otherLocked =
+                        lockedSendItemId != null && lockedSendItemId !== item.id;
+                      const canResend =
+                        isLockedProduct && paymentResendIn <= 0 && !busy;
+                      const waitingResend =
+                        isLockedProduct && paymentResendIn > 0 && !busy;
+                      const canSend =
+                        qrCustomer.length === 10 &&
+                        lockedSendItemId == null &&
+                        sendingItemId == null;
                       const disabled =
                         qrCustomer.length !== 10 ||
-                        alreadySent ||
-                        lockedOthers ||
-                        sendingItemId === item.id;
+                        otherLocked ||
+                        (lockedSendItemId == null && sendingItemId != null && !busy) ||
+                        (isLockedProduct && paymentResendIn > 0);
 
                       return (
                         <div
                           key={item.id}
                           className={`flex aspect-square flex-col rounded-2xl border p-3 ${
-                            alreadySent
+                            otherLocked
                               ? "border-stone-200 bg-stone-100/90 opacity-70"
-                              : "border-[#e8d9c8] bg-gradient-to-br from-white to-[#fff7ed] shadow-sm"
+                              : isLockedProduct
+                                ? "border-green-300 bg-green-50/70 shadow-sm"
+                                : "border-[#e8d9c8] bg-gradient-to-br from-white to-[#fff7ed] shadow-sm"
                           }`}
                         >
                           <p className="line-clamp-3 min-h-[3.75rem] text-sm font-semibold leading-snug text-stone-900">
@@ -955,19 +1116,31 @@ export default function App() {
                             <button
                               type="button"
                               disabled={disabled && !busy}
-                              onClick={() => void handleSendPaymentLink(item)}
+                              onClick={() => {
+                                if (canResend) {
+                                  void handleResendPaymentLink(item);
+                                  return;
+                                }
+                                if (canSend) void handleSendPaymentLink(item);
+                              }}
                               className={`inline-flex h-9 w-full shrink-0 items-center justify-center rounded-lg text-xs font-bold transition ${
-                                alreadySent
-                                  ? "cursor-not-allowed bg-stone-300 text-stone-600"
-                                  : disabled && !busy
-                                    ? "cursor-not-allowed bg-stone-200 text-stone-500"
-                                    : "sutra-btn active:scale-[0.98]"
+                                otherLocked || (disabled && !busy && !canResend)
+                                  ? "cursor-not-allowed bg-stone-200 text-stone-500"
+                                  : canResend
+                                    ? "bg-green-700 text-white hover:bg-green-800 active:scale-[0.98]"
+                                    : waitingResend
+                                      ? "cursor-not-allowed bg-stone-300 text-stone-600"
+                                      : "sutra-btn active:scale-[0.98]"
                               }`}
                             >
                               {busy ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : alreadySent ? (
-                                "Sent"
+                              ) : canResend ? (
+                                "Resend"
+                              ) : waitingResend ? (
+                                `Resend in ${paymentResendIn}s`
+                              ) : otherLocked ? (
+                                "Locked"
                               ) : (
                                 "Send"
                               )}

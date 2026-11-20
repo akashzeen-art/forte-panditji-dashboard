@@ -32,11 +32,19 @@ const CONSULTATION_ITEMS_PATH =
   import.meta.env.VITE_CONSULTATION_ITEMS_URL || "/api/consultation/items";
 const PAYMENT_LINK_PATH =
   import.meta.env.VITE_ASTRO_PAYMENT_LINK_URL || "/api/astro/payment-link";
+const PAYMENT_LINK_RESEND_PATH =
+  import.meta.env.VITE_ASTRO_PAYMENT_LINK_RESEND_URL ||
+  "/api/astro/payment-link/resend";
+const PANDIT_CALL_DATA_PATH =
+  import.meta.env.VITE_ASTRO_PANDIT_CALL_DATA_URL || "/api/astro/pandit/call-data";
+const CUSTOMER_CALL_DATA_PATH =
+  import.meta.env.VITE_ASTRO_CALL_DATA_URL || "/api/astro/call-data";
 const PANDIT_HISTORY_PATH =
   import.meta.env.VITE_ASTRO_PANDIT_HISTORY_URL || "/api/astro/pandit/history";
 const DEFAULT_PORTAL_ID = import.meta.env.VITE_PORTAL_ID || "1028";
 const SESSION_KEY = "pandit_dashboard_mobile";
 const PROFILE_KEY = "pandit_dashboard_profile";
+const ACTIVE_CALL_KEY = "pandit_dashboard_active_call";
 
 /** Caller details shown when a call is connected */
 export type CustomerCallDetails = {
@@ -131,6 +139,57 @@ export function storeProfile(profile: PanditProfile): void {
 export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(PROFILE_KEY);
+  clearActiveCallSession();
+}
+
+/** Connected customer while a call is live — survives refresh on this browser. */
+export type ActiveCallSession = {
+  pandit: string;
+  customer: string;
+  portalId: string;
+  connectedAt: number;
+};
+
+export function saveActiveCallSession(session: ActiveCallSession): void {
+  const pandit = normalizeMobile(session.pandit);
+  const customer = normalizeMobile(session.customer);
+  if (pandit.length !== 10 || customer.length !== 10) return;
+  const payload: ActiveCallSession = {
+    pandit,
+    customer,
+    portalId: String(session.portalId || "").trim(),
+    connectedAt: session.connectedAt || Date.now(),
+  };
+  localStorage.setItem(ACTIVE_CALL_KEY, JSON.stringify(payload));
+}
+
+export function loadActiveCallSession(panditMobile?: string): ActiveCallSession | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_CALL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ActiveCallSession;
+    const pandit = normalizeMobile(parsed.pandit || "");
+    const customer = normalizeMobile(parsed.customer || "");
+    if (pandit.length !== 10 || customer.length !== 10) return null;
+    if (panditMobile && normalizeMobile(panditMobile) !== pandit) return null;
+    // Ignore stale sessions older than 3 hours
+    if (Date.now() - (Number(parsed.connectedAt) || 0) > 3 * 60 * 60 * 1000) {
+      clearActiveCallSession();
+      return null;
+    }
+    return {
+      pandit,
+      customer,
+      portalId: String(parsed.portalId || "").trim(),
+      connectedAt: Number(parsed.connectedAt) || Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearActiveCallSession(): void {
+  localStorage.removeItem(ACTIVE_CALL_KEY);
 }
 
 export class PanditNotFoundError extends Error {}
@@ -306,6 +365,65 @@ export type PaymentLinkPayload = {
   itemCode: string;
 };
 
+/**
+ * GET /api/astro/pandit/call-data?agent=
+ * Used to restore the connected customer after refresh / login on another device.
+ */
+export async function fetchLatestConnectedCustomer(
+  agentMobile: string,
+): Promise<{ customer: string; callDate: string; callTime: string } | null> {
+  const agent = normalizeMobile(agentMobile);
+  if (agent.length !== 10) return null;
+
+  const response = await fetch(
+    `${resolveApiUrl(PANDIT_CALL_DATA_PATH)}?agent=${encodeURIComponent(agent)}`,
+    { method: "GET", headers: { Accept: "application/json" } },
+  );
+  if (!response.ok) return null;
+
+  const data = (await response.json()) as { content?: unknown[] };
+  const rows = Array.isArray(data.content) ? data.content : [];
+  for (const raw of rows) {
+    const row = raw as Record<string, unknown>;
+    const customer = normalizeMobile(String(row.customerNumber || ""));
+    const customerStatus = String(row.customerStatus || "").toLowerCase();
+    const agentStatus = String(row.agentStatus || "").toLowerCase();
+    const connected =
+      customerStatus.includes("connected") || agentStatus.includes("connected");
+    if (customer.length === 10 && connected) {
+      return {
+        customer,
+        callDate: String(row.callDate || ""),
+        callTime: String(row.callTime || ""),
+      };
+    }
+  }
+  return null;
+}
+
+/** GET /api/astro/call-data?msisdn= — portal id for the connected user. */
+export async function fetchCustomerPortalId(customerMobile: string): Promise<string> {
+  const msisdn = normalizeMobile(customerMobile);
+  if (msisdn.length !== 10) return "";
+  try {
+    const response = await fetch(
+      `${resolveApiUrl(CUSTOMER_CALL_DATA_PATH)}?msisdn=${encodeURIComponent(msisdn)}`,
+      { method: "GET", headers: { Accept: "application/json" } },
+    );
+    if (!response.ok) return "";
+    const data = (await response.json()) as Record<string, unknown>;
+    const portal = String(data.portalId ?? data.portal_id ?? "").trim();
+    return /^\d+$/.test(portal) ? portal : "";
+  } catch {
+    return "";
+  }
+}
+
+export type PaymentLinkResult = {
+  merchantOrderId: string;
+  portalId: string;
+};
+
 /** POST /api/astro/payment-link — push payment link to the connected customer's screen. */
 export async function sendPaymentLink(input: {
   customer: string;
@@ -315,7 +433,7 @@ export async function sendPaymentLink(input: {
   amount: number;
   itemCode: string;
   portalId?: number | string;
-}): Promise<void> {
+}): Promise<PaymentLinkResult> {
   const customer = normalizeMobile(input.customer);
   const agent = normalizeMobile(input.agent);
   if (customer.length !== 10) {
@@ -328,14 +446,15 @@ export async function sendPaymentLink(input: {
     throw new Error("Item code is required");
   }
 
-  // Prefer the connected user's portal id (from socket). Fallback only if omitted.
+  // Prefer the connected user's portal id (from socket / call-data).
   const portalRaw =
     String(input.portalId ?? "").trim() ||
     String(DEFAULT_PORTAL_ID || "").trim() ||
     "1028";
   const portalNum = Number(portalRaw);
+  const portalId = Number.isFinite(portalNum) ? portalNum : portalRaw;
   const payload: PaymentLinkPayload = {
-    portalId: Number.isFinite(portalNum) ? portalNum : portalRaw,
+    portalId,
     customer,
     customerName: (input.customerName || "Caller").trim() || "Caller",
     agent,
@@ -353,9 +472,63 @@ export async function sendPaymentLink(input: {
     body: JSON.stringify(payload),
   });
 
+  const text = await response.text().catch(() => "");
+  let body: Record<string, unknown> | null = null;
+  if (text) {
+    try {
+      body = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      body = null;
+    }
+  }
+
+  if (!response.ok) {
+    const msg =
+      (body && (String(body.error || body.message || "").trim() || text)) ||
+      `Payment link failed (${response.status})`;
+    throw new Error(msg);
+  }
+
+  const merchantOrderId = String(
+    body?.merchantOrderId ??
+      body?.merchant_order_id ??
+      body?.orderId ??
+      body?.order_id ??
+      customer,
+  ).trim();
+
+  return {
+    merchantOrderId: merchantOrderId || customer,
+    portalId: String(portalId),
+  };
+}
+
+/** POST /api/astro/payment-link/resend */
+export async function resendPaymentLink(input: {
+  portalId: number | string;
+  merchantOrderId: string;
+}): Promise<void> {
+  const portalRaw = String(input.portalId ?? "").trim();
+  const merchantOrderId = String(input.merchantOrderId || "").trim();
+  if (!portalRaw) throw new Error("Portal id is required to resend");
+  if (!merchantOrderId) throw new Error("Merchant order id is required to resend");
+
+  const portalNum = Number(portalRaw);
+  const response = await fetch(resolveApiUrl(PAYMENT_LINK_RESEND_PATH), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      portalId: Number.isFinite(portalNum) ? portalNum : portalRaw,
+      merchantOrderId,
+    }),
+  });
+
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(text || `Payment link failed (${response.status})`);
+    throw new Error(text || `Resend failed (${response.status})`);
   }
 }
 
