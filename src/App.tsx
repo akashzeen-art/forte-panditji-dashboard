@@ -134,7 +134,7 @@ function isStoneItem(item: ConsultationItem): boolean {
 
 export default function App() {
   const [view, setView] = useState<View>("login");
-  const [mobile, setMobile] = useState("7534838784");
+  const [mobile, setMobile] = useState("");
   const [profile, setProfile] = useState<PanditProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -533,7 +533,7 @@ export default function App() {
       await logoutPandit(profile.phoneNumber);
       await signOutOtp();
       setProfile(null);
-      setMobile("7534838784");
+      setMobile("");
       setView("login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Logout failed");
