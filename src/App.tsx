@@ -620,7 +620,8 @@ export default function App() {
     setPaymentLinkResult(null);
     try {
       const portalId = await resolvePortalIdForPayment();
-      const orderId = merchantOrderId.trim() || qrCustomer;
+      // Must be mOrderId from payment-link response (e.g. LK…), never customer msisdn
+      const orderId = merchantOrderId.trim();
       if (!portalId) {
         setPaymentLinkResult({
           ok: false,
@@ -628,10 +629,10 @@ export default function App() {
         });
         return;
       }
-      if (!orderId) {
+      if (!orderId || /^\d{10}$/.test(orderId)) {
         setPaymentLinkResult({
           ok: false,
-          text: "Merchant order id missing. Send again first.",
+          text: "Order id missing. Tap Send again to create a new payment link first.",
         });
         return;
       }

@@ -489,16 +489,26 @@ export async function sendPaymentLink(input: {
     throw new Error(msg);
   }
 
+  // Backend returns mOrderId (e.g. "LK1795417771353") — this is merchantOrderId for resend.
+  // Never fall back to customer mobile; resend rejects msisdn with ORDER_NOT_FOUND.
   const merchantOrderId = String(
-    body?.merchantOrderId ??
+    body?.mOrderId ??
+      body?.m_order_id ??
+      body?.merchantOrderId ??
       body?.merchant_order_id ??
       body?.orderId ??
       body?.order_id ??
-      customer,
+      "",
   ).trim();
 
+  if (!merchantOrderId) {
+    throw new Error(
+      "Payment link created but order id (mOrderId) was missing in the response",
+    );
+  }
+
   return {
-    merchantOrderId: merchantOrderId || customer,
+    merchantOrderId,
     portalId: String(portalId),
   };
 }
@@ -526,9 +536,16 @@ export async function resendPaymentLink(input: {
     }),
   });
 
+  const text = await response.text().catch(() => "");
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(text || `Resend failed (${response.status})`);
+    let msg = text || `Resend failed (${response.status})`;
+    try {
+      const body = JSON.parse(text) as Record<string, unknown>;
+      msg = String(body.error || body.message || msg).trim() || msg;
+    } catch {
+      /* keep raw text */
+    }
+    throw new Error(msg);
   }
 }
 
